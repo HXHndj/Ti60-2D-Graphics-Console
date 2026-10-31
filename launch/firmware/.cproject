@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 4.0.0?>
+<cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
+  <storageModule moduleId="org.eclipse.cdt.core.settings">
+    <cconfiguration id="gfx2d.external.default">
+      <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="gfx2d.external.default" moduleId="org.eclipse.cdt.core.settings" name="Default">
+        <externalSettings/>
+        <extensions>
+          <extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+          <extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+          <extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+          <extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+          <extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+        </extensions>
+      </storageModule>
+      <storageModule moduleId="cdtBuildSystem" version="4.0.0">
+        <configuration buildProperties="" description="External Makefile; no IDE-generated compiler options" id="gfx2d.external.default" name="Default" parent="org.eclipse.cdt.build.core.prefbase.cfg">
+          <folderInfo id="gfx2d.external.default." name="/" resourcePath="">
+            <toolChain id="gfx2d.external.toolchain" name="No ToolChain" resourceTypeBasedDiscovery="false" superClass="org.eclipse.cdt.build.core.prefbase.toolchain">
+              <targetPlatform id="gfx2d.external.platform" name="RV32IM ELF"/>
+              <builder autoBuildTarget="all" buildPath="${workspace_loc:/gfx2d_launch_firmware}" cleanBuildTarget="clean" command="make" enableAutoBuild="false" enableCleanBuild="true" enableFullBuild="true" enableIncrementalBuild="true" id="gfx2d.external.builder" incrementalBuildTarget="all" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" parallelBuildOn="false" superClass="org.eclipse.cdt.build.core.settings.default.builder"/>
+              <tool id="gfx2d.external.c" name="GNU C" superClass="org.eclipse.cdt.build.core.settings.holder">
+                <inputType id="gfx2d.external.c.input" languageId="org.eclipse.cdt.core.gcc" languageName="GNU C" sourceContentType="org.eclipse.cdt.core.cSource,org.eclipse.cdt.core.cHeader" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
+              </tool>
+            </toolChain>
+          </folderInfo>
+        </configuration>
+      </storageModule>
+      <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+    </cconfiguration>
+  </storageModule>
+  <storageModule moduleId="cdtBuildSystem" version="4.0.0">
+    <project id="gfx2d.external.project" name="gfx2d_launch_firmware"/>
+  </storageModule>
+</cproject>

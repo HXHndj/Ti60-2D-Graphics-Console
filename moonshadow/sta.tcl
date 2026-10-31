@@ -1,0 +1,5 @@
+reset_timing
+read_sdc ddr_board.sdc
+report_clocks
+report_timing
+check_timing

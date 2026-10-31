@@ -1,0 +1,100 @@
+<efx:project xmlns:efx="http://www.efinixinc.com/enf_proj" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" config_result_in_sync="sync" description="" design_ood="sync" last_run_flow="bitstream" last_run_state="pass" last_run_timing="" name="key3" place_ood="sync" route_ood="sync" sw_version="2026.1.132.4.5" xsi:schemaLocation="http://www.efinixinc.com/enf_proj enf_proj.xsd">
+
+  <efx:device_info>
+    <efx:family name="Titanium" />
+    <efx:device name="Ti60F225" />
+    <efx:timing_model name="I3" />
+  </efx:device_info>
+
+  <efx:design_info def_veri_version="verilog_2k" def_vhdl_version="" partition_interface_allowed_off_perimeter="true">
+    <efx:top_module name="ddr_board" />
+    <efx:design_file library="" name="soc.v" version="" />
+    <efx:design_file library="" name="rtl\ddr_board.v" version="" />
+    <efx:design_file library="" name="rtl\common\simple_dual_port_ram.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\ddr3_top.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\lb2_axi_clk.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\local_bus_ctl\local_bus_ctl.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\memory_bus_ctl\memory_bus_ctl.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\axi4_bus_ctl\axi4_bus_ctl.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\phy_ctl\ddr_mpr_rdlvl.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\phy_ctl\ddr_phy_if.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\phy_ctl\phy_ctl.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\phy_ctl\ddr_phy_wrcal.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\phy_ctl\ddr_phy_rdlvl_dqs.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\phy_ctl\ddr_calibration_ini.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\phy_ctl\ddr_phy_wrlvl.v" version="" />
+    <efx:design_file library="" name="rtl\ddr3_controller\common\efx_fifo_v2.3\efx_fifo_wrapper.v" version="" />
+    <efx:design_file library="" name="axi_fabric.v" version="" />
+    <efx:design_file library="" name="cdc_mailbox.v" version="" />
+    <efx:design_file library="" name="diag_hud.v" version="" />
+    <efx:design_file library="" name="display_scanout.v" version="" />
+    <efx:design_file library="" name="display_timing.v" version="" />
+    <efx:design_file library="" name="dvi_encoder.v" version="" />
+    <efx:design_file library="" name="encode.v" version="" />
+    <efx:design_file library="" name="firmware_rom.v" version="" />
+    <efx:design_file library="" name="gfx_async_fifo.v" version="" />
+    <efx:design_file library="" name="gfx_burst_plan.v" version="" />
+    <efx:design_file library="" name="gfx_command_queue.v" version="" />
+    <efx:design_file library="" name="gfx_command_queue_wide.v" version="" />
+    <efx:design_file library="" name="gfx_core.v" version="" />
+    <efx:design_file library="" name="gfx_sprite_pipe.v" version="" />
+    <efx:design_file library="" name="gfx_copy_stream.v" version="" />
+    <efx:design_file library="" name="gfx_engine.v" version="" />
+    <efx:design_file library="" name="gfx_event_wait.v" version="" />
+    <efx:design_file library="" name="gfx_fifo.v" version="" />
+    <efx:design_file library="" name="gfx_pixel_pipe.v" version="" />
+    <efx:design_file library="" name="gfx_read_dma.v" version="" />
+    <efx:design_file library="" name="gfx_ring_fetch.v" version="" />
+    <efx:design_file library="" name="gfx_regs.v" version="" />
+    <efx:design_file library="" name="gfx_source_reader.v" version="" />
+    <efx:design_file library="" name="gfx_source_row_ram.v" version="" />
+    <efx:design_file library="" name="gfx_system.v" version="" />
+    <efx:design_file library="" name="gfx_text_overlay.v" version="" />
+    <efx:design_file library="" name="gfx_group_backend.v" version="" />
+    <efx:design_file library="" name="gfx_validate.v" version="" />
+    <efx:design_file library="" name="gfx_write_dma.v" version="" />
+    <efx:design_file library="" name="reset_sync.v" version="" />
+    <efx:design_file library="" name="mirror_reconfig.v" version="" />
+    <efx:design_file library="" name="scan_crc.v" version="" />
+    <efx:top_vhdl_arch name="" />
+    <efx:msg_config name="" />
+    <efx:partition_definitions name="" />
+    <efx:partition_interface_assignments name="" />
+  </efx:design_info>
+
+  <efx:interface_info>
+    <efx:default_peri_file name="" />
+  </efx:interface_info>
+
+  <efx:constraint_info>
+    <efx:sdc_file name="ddr_board.sdc" />
+    <efx:inter_file name="" />
+  </efx:constraint_info>
+
+  <efx:sim_info />
+
+  <efx:misc_info />
+
+  <efx:ooc_info />
+
+  <efx:ip_info />
+
+  <efx:synthesis tool_name="efx_map">
+    <efx:param name="include" value="rtl" value_type="e_string" />
+    <efx:param name="retiming" value="0" value_type="e_string" />
+    <efx:param name="write_efx_verilog" value="on" value_type="e_string" />
+    <efx:param name="work_dir" value="work_syn" value_type="e_string" />
+  </efx:synthesis>
+
+  <efx:place_and_route tool_name="efx_pnr">
+    <efx:param name="work_dir" value="work_pnr" value_type="e_string" />
+    <efx:param name="seed" value="3" value_type="e_integer" />
+  </efx:place_and_route>
+
+  <efx:bitstream_generation tool_name="efx_pgm" />
+
+  <efx:debugger />
+
+  <efx:security />
+
+</efx:project>

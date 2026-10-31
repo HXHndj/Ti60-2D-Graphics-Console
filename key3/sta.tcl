@@ -1,0 +1,3 @@
+report_clocks
+report_timing
+check_timing

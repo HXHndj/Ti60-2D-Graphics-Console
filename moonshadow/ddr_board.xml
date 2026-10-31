@@ -1,0 +1,152 @@
+<efx:project xmlns:efx="http://www.efinixinc.com/enf_proj" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="ddr_board" description="" sw_version="2026.1.132.4.5" xsi:schemaLocation="http://www.efinixinc.com/enf_proj enf_proj.xsd">
+    <efx:device_info>
+        <efx:family name="Titanium" />
+        <efx:device name="Ti60F225" />
+        <efx:timing_model name="I3" />
+    </efx:device_info>
+    <efx:design_info def_veri_version="verilog_2k" def_vhdl_version="vhdl_2008" unified_flow="false" partition_interface_allowed_off_perimeter="true">
+        <efx:top_module name="ddr_board" />
+        <efx:design_file name="soc.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr_board.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/common/simple_dual_port_ram.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/ddr3_top.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/lb2_axi_clk.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/local_bus_ctl/local_bus_ctl.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/memory_bus_ctl/memory_bus_ctl.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/axi4_bus_ctl/axi4_bus_ctl.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/phy_ctl/ddr_mpr_rdlvl.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/phy_ctl/ddr_phy_if.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/phy_ctl/phy_ctl.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/phy_ctl/ddr_phy_wrcal.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/phy_ctl/ddr_phy_rdlvl_dqs.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/phy_ctl/ddr_calibration_ini.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/phy_ctl/ddr_phy_wrlvl.v" version="verilog_2k" library="default" />
+        <efx:design_file name="rtl/ddr3_controller/common/efx_fifo_v2.3/efx_fifo_wrapper.v" version="verilog_2k" library="default" />
+        <efx:design_file name="axi_fabric.v" version="verilog_2k" library="default" />
+        <efx:design_file name="cdc_mailbox.v" version="verilog_2k" library="default" />
+        <efx:design_file name="diag_hud.v" version="verilog_2k" library="default" />
+        <efx:design_file name="display_scanout.v" version="verilog_2k" library="default" />
+        <efx:design_file name="display_timing.v" version="verilog_2k" library="default" />
+        <efx:design_file name="dvi_encoder.v" version="verilog_2k" library="default" />
+        <efx:design_file name="encode.v" version="verilog_2k" library="default" />
+        <efx:design_file name="firmware_rom.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_async_fifo.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_burst_plan.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_command_queue.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_core.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_engine.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_event_wait.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_fifo.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_pixel_pipe.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_read_dma.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_regs.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_source_reader.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_system.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_text_overlay.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_tile4_buffer.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_tile4_group_pingpong.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_tile4_engine.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_validate.v" version="verilog_2k" library="default" />
+        <efx:design_file name="gfx_write_dma.v" version="verilog_2k" library="default" />
+        <efx:design_file name="reset_sync.v" version="verilog_2k" library="default" />
+        <efx:design_file name="scan_crc.v" version="verilog_2k" library="default" />
+        <efx:top_vhdl_arch name="" />
+        <efx:msg_config name="" />
+        <efx:partition_definitions name="" />
+        <efx:partition_interface_assignments name="" />
+    </efx:design_info>
+    <efx:interface_info>
+        <efx:default_peri_file name="ddr_board.peri.xml" />
+        <efx:peri_file name="ddr_board.peri.xml" />
+    </efx:interface_info>
+    <efx:constraint_info>
+        <efx:sdc_file name="ddr_board.sdc" />
+        <efx:inter_file name="" />
+    </efx:constraint_info>
+    <efx:sim_info />
+    <efx:misc_info />
+    <efx:ooc_info />
+    <efx:ip_info />
+    <efx:synthesis tool_name="efx_map">
+        <efx:param name="include" value="rtl" value_type="e_string" />
+        <efx:param name="retiming" value="0" value_type="e_string" />
+        <efx:param name="write_efx_verilog" value="on" value_type="e_string" />
+        <efx:param name="work_dir" value="work_syn" value_type="e_string" />
+        <efx:param name="allow-const-ram-index" value="0" value_type="e_option" />
+        <efx:param name="blackbox-error" value="1" value_type="e_option" />
+        <efx:param name="blast_const_operand_adders" value="1" value_type="e_option" />
+        <efx:param name="bram_output_regs_packing" value="1" value_type="e_option" />
+        <efx:param name="bram-push-tco-outreg" value="0" value_type="e_option" />
+        <efx:param name="create-onehot-fsms" value="0" value_type="e_option" />
+        <efx:param name="fanout-limit" value="0" value_type="e_integer" />
+        <efx:param name="hdl-compile-unit" value="1" value_type="e_option" />
+        <efx:param name="hdl-loop-limit" value="20000" value_type="e_integer" />
+        <efx:param name="infer-clk-enable" value="3" value_type="e_option" />
+        <efx:param name="infer-sync-set-reset" value="1" value_type="e_option" />
+        <efx:param name="enable-mark-debug" value="1" value_type="e_option" />
+        <efx:param name="max_ram" value="-1" value_type="e_integer" />
+        <efx:param name="max_mult" value="-1" value_type="e_integer" />
+        <efx:param name="max-bit-blast-mem-size" value="10240" value_type="e_integer" />
+        <efx:param name="min-sr-fanout" value="0" value_type="e_integer" />
+        <efx:param name="min-ce-fanout" value="0" value_type="e_integer" />
+        <efx:param name="mode" value="speed" value_type="e_option" />
+        <efx:param name="mult-auto-pipeline" value="0" value_type="e_integer" />
+        <efx:param name="mult-decomp-retime" value="1" value_type="e_option" />
+        <efx:param name="operator-sharing" value="0" value_type="e_option" />
+        <efx:param name="optimize-adder-tree" value="0" value_type="e_option" />
+        <efx:param name="optimize-zero-init-rom" value="1" value_type="e_option" />
+        <efx:param name="peri-syn-instantiation" value="0" value_type="e_option" />
+        <efx:param name="peri-syn-inference" value="0" value_type="e_option" />
+        <efx:param name="ram-decomp-mode" value="0" value_type="e_option" />
+        <efx:param name="seq_opt" value="1" value_type="e_option" />
+        <efx:param name="seq-opt-sync-only" value="0" value_type="e_option" />
+        <efx:param name="use-logic-for-small-mem" value="64" value_type="e_integer" />
+        <efx:param name="use-logic-for-small-rom" value="64" value_type="e_integer" />
+        <efx:param name="max_threads" value="-1" value_type="e_integer" />
+        <efx:param name="dsp-input-regs-packing" value="1" value_type="e_option" />
+        <efx:param name="dsp-output-regs-packing" value="1" value_type="e_option" />
+        <efx:param name="dsp-mac-packing" value="1" value_type="e_option" />
+        <efx:param name="insert-carry-skip" value="0" value_type="e_option" />
+        <efx:param name="pack-luts-to-comb4" value="0" value_type="e_option" />
+    </efx:synthesis>
+    <efx:place_and_route tool_name="efx_pnr">
+        <efx:param name="work_dir" value="work_pnr" value_type="e_string" />
+        <efx:param name="seed" value="11" value_type="e_integer" />
+        <efx:param name="placer_effort_level" value="2" value_type="e_option" />
+        <efx:param name="max_threads" value="-1" value_type="e_integer" />
+        <efx:param name="print_critical_path" value="10" value_type="e_integer" />
+        <efx:param name="beneficial_skew" value="on" value_type="e_option" />
+    </efx:place_and_route>
+    <efx:bitstream_generation tool_name="efx_pgm">
+        <efx:param name="mode" value="active" value_type="e_option" />
+        <efx:param name="width" value="1" value_type="e_option" />
+        <efx:param name="cold_boot" value="off" value_type="e_bool" />
+        <efx:param name="cascade" value="off" value_type="e_option" />
+        <efx:param name="enable_roms" value="smart" value_type="e_option" />
+        <efx:param name="spi_low_power_mode" value="on" value_type="e_bool" />
+        <efx:param name="io_weak_pullup" value="on" value_type="e_bool" />
+        <efx:param name="oscillator_clock_divider" value="DIV8" value_type="e_option" />
+        <efx:param name="bitstream_compression" value="on" value_type="e_bool" />
+        <efx:param name="active_capture_clk_edge" value="posedge" value_type="e_option" />
+        <efx:param name="release_tri_then_reset" value="on" value_type="e_bool" />
+        <efx:param name="generate_bit" value="on" value_type="e_bool" />
+        <efx:param name="generate_bitbin" value="off" value_type="e_bool" />
+        <efx:param name="generate_hex" value="on" value_type="e_bool" />
+        <efx:param name="generate_hexbin" value="off" value_type="e_bool" />
+        <efx:param name="enable_external_master_clock" value="off" value_type="e_bool" />
+        <efx:param name="jtag_usercode" value="0xFFFFFFFF" value_type="e_string" />
+    </efx:bitstream_generation>
+    <efx:debugger>
+        <efx:param name="work_dir" value="work_dbg" value_type="e_string" />
+        <efx:param name="auto_instantiation" value="off" value_type="e_bool" />
+        <efx:param name="profile" value="NONE" value_type="e_string" />
+    </efx:debugger>
+    <efx:security>
+        <efx:param name="enable_bitstream_encrypt" value="off" value_type="e_bool" />
+        <efx:param name="enable_bitstream_auth" value="off" value_type="e_bool" />
+        <efx:param name="encryption_key_file" value="NONE" value_type="e_string" />
+        <efx:param name="auth_key_file" value="NONE" value_type="e_string" />
+        <efx:param name="randomize_iv_value" value="off" value_type="e_bool" />
+        <efx:param name="iv_value" value="" value_type="e_string" />
+    </efx:security>
+</efx:project>
