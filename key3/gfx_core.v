@@ -17,7 +17,7 @@
 // SMALL_PIPE/SPRITE_ROWS/PRESENT_FENCE/STREAM_SUBMIT/RING_FETCH (key3
 // candidate) gate the compact pixel pipe, sprite row-slot depth, present
 // fencing, stream submission and the DDR command ring fetcher.
-module gfx_core #(parameter QUEUE_DEPTH=16,TIMEOUT_CYCLES=10000000,FRAME_BYTES=1228800,CAPS_EXTRA=0,MAX_FILL_BEATS=16,SHARED_PIXEL_PIPE=2,HAS_BUCKET=1,BUCKET_ROW_PREFETCH=0,BUCKET_RCOPY_PREFETCH=0,COPY_STREAM=0,SMALL_PIPE=0,SPRITE_ROWS=2,PRESENT_FENCE=0,STREAM_SUBMIT=0,RING_FETCH=0,BUCKET_SOURCE_TRIM=0,FRAME_TRACE=0)(
+module gfx_core #(parameter QUEUE_DEPTH=16,TIMEOUT_CYCLES=10000000,FRAME_BYTES=1228800,CAPS_EXTRA=0,MAX_FILL_BEATS=16,SHARED_PIXEL_PIPE=2,HAS_BUCKET=1,BUCKET_ROW_PREFETCH=0,BUCKET_RCOPY_PREFETCH=0,COPY_STREAM=0,SMALL_PIPE=0,SPRITE_ROWS=4,PRESENT_FENCE=0,STREAM_SUBMIT=0,RING_FETCH=0,BUCKET_SOURCE_TRIM=0,FRAME_TRACE=0)(
  input wire clk,rst_n,input wire psel,penable,pwrite,input wire [11:0] paddr,input wire [31:0] pwdata,
  output wire pready,output wire [31:0] prdata,output wire pslverr,irq,
  input wire [31:0] pool_start,pool_end,protect0_start,protect0_end,protect1_start,protect1_end,
@@ -200,7 +200,7 @@ module gfx_core #(parameter QUEUE_DEPTH=16,TIMEOUT_CYCLES=10000000,FRAME_BYTES=1
    rs_out_data,rs_out_valid&&use_small,rs_done&&use_small,rs_error,rs_busy,rs_cache_serving,
    rs_araddr,rs_arlen,rs_arsize,rs_arburst,rs_arvalid,s_src_arready,s_src_rbeat_valid,rready_from_reader,
    s_px_rst,s_px_iv,s_px_or,s_px_last,s_px_src,s_px_dst,s_px_color,s_px_op,s_px_alpha,s_px_key,
-   px_ready,px_valid&{4{use_small}},px_write,px_last,px_result,small_bg_bypasses);
+   px_ready,px_valid&{4{use_small}},px_write,px_last,px_result,small_bg_bypasses,cache_flush,awvalid&&awready,awaddr,awlen);
  end else begin:sprite_absent
   assign small_ready=1;assign small_busy=0;assign small_safe=1;assign small_done=0;
   assign small_seq=0;assign small_err=0;assign small_fa=0;assign small_bg_bypasses=0;

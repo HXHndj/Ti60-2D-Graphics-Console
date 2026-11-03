@@ -1,0 +1,16 @@
+{
+  "flash_slot": 2,
+  "reference_application_sha256": "7a1da1bcbb79f55951640ce075a4cbb6a8bdcd963adabcadb77db21c539870d9",
+  "reference_combined_sha256": "ea155416eb1de01c9e16e7e355938d1dade79a501bd3115b77d20056510e2278",
+  "reference_bit_sha256": "442114043cba237dd087a36e8913a091bb1488cf6efd5e51ed227a795f4a1a25",
+  "reference_hex_sha256": "76893c33e080f94d06a3e97e221739fa419f7056bfd2710b4f721706d8285110",
+  "source_synchronized": true,
+  "board_programmed_by_this_sync": false,
+  "validation": "Firmware rebuild must match the reference application, ROM and bootstrap; full FPGA implementation is a separate build.",
+  "firmware_rebuild_verified": true,
+  "app_sha256": "7a1da1bcbb79f55951640ce075a4cbb6a8bdcd963adabcadb77db21c539870d9",
+  "rom_sha256": "b41de585bf08526971ba3d39d0d29627a7b76a921b552bb8626d717128bca200",
+  "bootstrap_sha256": "af29db725411f11806c2cad203f9d15ab77b16f322f98629365de491dd2906fd",
+  "RTL_and_timing_files_matched": 58,
+  "validation_scope": "Original top-level firmware-only build in isolated ASCII workspace; application, encoded ROM and bootstrap byte-identical to Flash reference. No FPGA rebuild or board programming."
+}

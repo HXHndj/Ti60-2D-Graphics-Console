@@ -13,13 +13,13 @@
 #define DANMAKU_RUSH_PLAYER_Y (DANMAKU_RUSH_VIEW_TOP+DANMAKU_RUSH_VIEW_H*7/12)
 #define DANMAKU_STAGES 3u
 #if defined(MIRROR_KEY3) && defined(DANMAKU_DIRECT_ONLY)
-#define DANMAKU_BULLETS 1920u
+#define DANMAKU_BULLETS 2560u
 #else
 #define DANMAKU_BULLETS 1536u
 #endif
 #define DANMAKU_DEFAULT_LOAD 512u
 #if defined(MIRROR_KEY3) && defined(DANMAKU_DIRECT_ONLY)
-#define DANMAKU_LOAD_COUNT 12u
+#define DANMAKU_LOAD_COUNT 18u
 #else
 #define DANMAKU_LOAD_COUNT 9u
 #endif
@@ -31,6 +31,13 @@ typedef struct {
  uint16_t blaze_interval,blaze_rays,breath_half_angle;
 } danmaku_load_preset;
 extern const danmaku_load_preset danmaku_load_presets[DANMAKU_LOAD_COUNT];
+/* Public presentation ladder; hidden engineering presets retain their rules. */
+#if defined(MIRROR_KEY3) && defined(DANMAKU_DIRECT_ONLY)
+#define DANMAKU_MENU_LOAD_COUNT 5u
+#else
+#define DANMAKU_MENU_LOAD_COUNT DANMAKU_LOAD_COUNT
+#endif
+extern const uint16_t danmaku_menu_loads[DANMAKU_MENU_LOAD_COUNT];
 #define DANMAKU_IDLE_TICKS 600u
 /* Shared visual/physics/input contract: 0=N, 32=NE, ..., 224=NW. */
 #define DANMAKU_SHIELD_DIRECTIONS 8u
@@ -97,6 +104,7 @@ typedef struct {
 /* sprites counts visible scene instances equally, including scenery sprites,
  * wagon, shield and impact FX; excludes framebuffer COPY/FILL and HUD icons.
  * A track tile split at source wrap remains one instance. */
+unsigned danmaku_transition_chips(const danmaku_state *,uint32_t,gfx_command *,unsigned);
 typedef struct { unsigned sprites,bullets,commands,blend_pixels,reflected,minions; } danmaku_stats;
 
 /* Track centre and player deck constraints, in screen pixels. */

@@ -62,6 +62,20 @@ const danmaku_load_preset danmaku_load_presets[DANMAKU_LOAD_COUNT]={
  {1664,24,12,8,156,19,104,6,96,14,12,26,63},
  {1792,26,12,8,168,19,112,6,104,15,12,28,65},
  {1920,28,12,8,180,19,120,6,112,16,12,30,67},
+ {2048,30,12,8,192,19,128,6,120,17,12,32,69},
+ {2176,32,12,8,204,19,136,6,128,18,12,34,71},
+ {2304,34,12,8,216,19,144,6,136,19,12,36,73},
+ {2432,36,12,8,228,19,152,6,144,20,12,38,75},
+ {2496,37,12,8,240,19,156,6,148,21,12,40,76},
+ {2560,38,12,8,240,19,160,6,152,21,12,40,77},
+#endif
+};
+/* Only the visible ladder changes; the attack schedule table stays intact. */
+const uint16_t danmaku_menu_loads[DANMAKU_MENU_LOAD_COUNT]={
+#if defined(MIRROR_KEY3) && defined(DANMAKU_DIRECT_ONLY)
+ 512,1024,1536,1920,2496
+#else
+ 512,640,768,896,1024,1152,1280,1408,1536
 #endif
 };
 static const danmaku_load_preset legacy_load={256,4,12,30,48,24,20,6,16,1,12,4,43};
@@ -71,12 +85,12 @@ static const danmaku_load_preset *load_preset(unsigned target){
  return target==384u?&diagnostic_384:&legacy_load;
 }
 unsigned danmaku_next_load(unsigned target){
- for(unsigned i=0;i<DANMAKU_LOAD_COUNT;i++)if(danmaku_load_presets[i].load>target)return danmaku_load_presets[i].load;
- return danmaku_load_presets[0].load;
+ for(unsigned i=0;i<DANMAKU_MENU_LOAD_COUNT;i++)if(danmaku_menu_loads[i]>target)return danmaku_menu_loads[i];
+ return danmaku_menu_loads[0];
 }
 unsigned danmaku_previous_load(unsigned target){
- for(unsigned i=DANMAKU_LOAD_COUNT;i>0;i--)if(danmaku_load_presets[i-1u].load<target)return danmaku_load_presets[i-1u].load;
- return danmaku_load_presets[DANMAKU_LOAD_COUNT-1u].load;
+ for(unsigned i=DANMAKU_MENU_LOAD_COUNT;i>0;i--)if(danmaku_menu_loads[i-1u]<target)return danmaku_menu_loads[i-1u];
+ return danmaku_menu_loads[DANMAKU_MENU_LOAD_COUNT-1u];
 }
 void danmaku_timing_set(danmaku_timing *hook){timing_hook=hook;}
 static int absi(int x){return x<0?-x:x;}
@@ -433,7 +447,9 @@ static COLLIDE_HOT void collide_projectiles(danmaku_state *s){
  for(unsigned i=0;i<target;i++){
   danmaku_actor *b=&s->bullets[i];if(!b->alive)continue;
   int ox=b->x,oy=b->y,nx=ox+b->vx,ny=oy+b->vy;
-  b->x=nx;b->y=ny;b->age++;
+  /* Vertical pearl rain has vx=0. Avoid a write-through DDR store for an
+   * unchanged coordinate; retain identical fixed-point positions and age. */
+  if(nx!=ox)b->x=nx;if(ny!=oy)b->y=ny;b->age++;
   int x0,y0,x1,y1;
   if((ox|oy|nx|ny)>=0){x0=(ox>>8)+8;y0=(oy>>8)+8;x1=(nx>>8)+8;y1=(ny>>8)+8;}
   else{x0=div256(ox)+8;y0=div256(oy)+8;x1=div256(nx)+8;y1=div256(ny)+8;}
@@ -528,7 +544,7 @@ static unsigned sprite(int top,int bottom,const command_output *out,unsigned n,u
 }
 static uint32_t asset(uint32_t base,unsigned x,unsigned y){return base+y*GAME_STRIDE+x*4u;}
 typedef struct {uint32_t src,pitch;int x,y,w,h;unsigned alpha,refl;} projectile;
-static unsigned compact_projectile(const danmaku_actor *b,unsigned kind,unsigned refl){
+static inline __attribute__((always_inline)) unsigned compact_projectile(const danmaku_actor *b,unsigned kind,unsigned refl){
  if(refl)return DANMAKU_COMPACT_REFLECTED;
  if(kind==DANMAKU_BREATH)return DANMAKU_COMPACT_BREATH;
  unsigned phase=b->reserved?((unsigned)(uint16_t)b->age/DANMAKU_VISUAL_FRAME_TICKS)&3u:0u;
@@ -617,7 +633,10 @@ static unsigned projectile_direct(const danmaku_state *s,uint32_t baked,uint32_t
  unsigned first=n,reflected=0,pixels=0;
  unsigned cover_active=out->prefix&&out->templates&&s->rush_phase==DANMAKU_RUSH_TRANSITION;
  cover_map coverage;if(cover_active)cover_prepare(s,&coverage);
- for(unsigned i=0;i<s->target;i++)if(s->bullets[i].alive){
+ for(unsigned i=0;i<s->target;i++){
+  /* Publish by processed pool slots, even when the boundary slot is dead. */
+  if(out->prefix&&(i==1024u||i==2048u)&&out->prefix(out->ctx,n))return 0;
+  if(!s->bullets[i].alive)continue;
   const danmaku_actor *b=&s->bullets[i];unsigned old=n,kind=b->kind&7u,refl=(b->kind&DANMAKU_REFLECTED)!=0;
   unsigned breath=kind==DANMAKU_BREATH&&!refl;
   uint32_t src=baked?baked+DANMAKU_COMPACT_OFFSET+compact_projectile(b,kind,refl):GAME_ATLAS+(refl?24u:kind==DANMAKU_BLAZE_FIRE?12u:kind==DANMAKU_BREATH?23u:12u+kind)*4096u;
@@ -633,6 +652,10 @@ static unsigned projectile_direct(const danmaku_state *s,uint32_t baked,uint32_t
    * Unsigned range checks reject negative coordinates as well. Edge sprites
    * retain the general clipper, including the full-width breath fallback. */
   if(baked&&pitch==64u&&(unsigned)x<=GAME_W-16u&&y>=top&&y<=bottom-(breath?32:16)){
+   /* A later opaque wipe covers every destination pixel. Skip constructing,
+    * validating and fetching an otherwise empty descriptor. Game actors and
+    * their order remain unchanged; partially covered edges still draw. */
+   if(cover_active&&covered(&coverage,x,y,x+16,y+(breath?32:16)))continue;
    unsigned slot=(out->first+n)&out->mask;n++;
    gfx_command *c=(gfx_command *)(void *)(out->base+slot*out->stride);
    unsigned tag=refl?3u:breath?2u:1u;
@@ -650,10 +673,77 @@ static unsigned projectile_direct(const danmaku_state *s,uint32_t baked,uint32_t
     * bounds. Mark address validity only for the immutable physical layout. */
    unsigned fact=tag;
    if(baked==GAME_SCRATCH&&(back==GAME_FB0||back==GAME_FB1||back==GAME_FB2))fact|=GFX_TEMPLATE_PROVEN;
-   if(cover_active){
-    if(covered(&coverage,x,y,x+16,y+(breath?32:16))){c->width=0;c->height=0;fact=0;}
-    fact|=GFX_TEMPLATE_COVER_CHECKED;
+   if(cover_active)fact|=GFX_TEMPLATE_COVER_CHECKED;
+   if(out->templates&&previous!=fact)out->templates[slot]=(uint8_t)fact;
+   reflected+=refl;pixels+=breath?512u:256u;continue;
+  }else n=sprite(top,bottom,out,n,back,src,pitch,x,y,w,breath?32:16,refl?240u:breath?145u:255u,1);
+  if(n!=old){reflected+=refl;gfx_command *c=(gfx_command *)(void *)(out->base+((out->first+n-1u)&out->mask)*out->stride);pixels+=c->width*c->height;}
+ }
+ summary[0]=n-first;summary[1]=reflected;summary[2]=pixels;
+ return n;
+}
+#if defined(__GNUC__) && defined(MIRROR_KEY3)
+__attribute__((section(".text.key3_projectile_cover_hot"),noinline,noclone))
+#endif
+static unsigned projectile_cover_direct(const danmaku_state *s,uint32_t baked,uint32_t back,
+ const command_output *out,unsigned n,int top,int bottom,unsigned summary[3]){
+ unsigned first=n,reflected=0,pixels=0;
+ unsigned cover_active=out->prefix&&out->templates&&s->rush_phase==DANMAKU_RUSH_TRANSITION;
+ cover_map coverage;if(cover_active)cover_prepare(s,&coverage);
+ for(unsigned i=0;i<s->target;i++){
+  /* Publish by processed pool slots, even when the boundary slot is dead. */
+  if(out->prefix&&(i==1024u||i==2048u)&&out->prefix(out->ctx,n))return 0;
+  if(!s->bullets[i].alive)continue;
+  const danmaku_actor *b=&s->bullets[i];unsigned old=n,kind=b->kind&7u,refl=(b->kind&DANMAKU_REFLECTED)!=0;
+  unsigned breath=kind==DANMAKU_BREATH&&!refl;
+  uint32_t src=baked?baked+DANMAKU_COMPACT_OFFSET+compact_projectile(b,kind,refl):GAME_ATLAS+(refl?24u:kind==DANMAKU_BLAZE_FIRE?12u:kind==DANMAKU_BREATH?23u:12u+kind)*4096u;
+  unsigned pitch=baked?(breath?128u:64u):128u;
+  int x=div256(b->x)-(breath?8:0),y=div256(b->y)-(breath?8:0),w=breath?32:16;
+  /* Keep DIRECT construction scalar: returning a clipped projectile struct
+   * here adds a per-sprite call, stack traffic and a second clipping pass. */
+  if(baked&&breath){
+   if(x>=0&&x+32<=GAME_W){x+=8;w=16;pitch=64;}
+   else{src=asset(baked,640,SOURCE_Y);pitch=GAME_STRIDE;}
+  }
+  /* The common fully visible projectile needs no clipping or source offset.
+   * Unsigned range checks reject negative coordinates as well. Edge sprites
+   * retain the general clipper, including the full-width breath fallback. */
+  if(baked&&pitch==64u&&(unsigned)x<=GAME_W-16u&&y>=top&&y<=bottom-(breath?32:16)){
+   /* A later opaque wipe covers every destination pixel. Skip constructing,
+    * validating and fetching an otherwise empty descriptor. Game actors and
+    * their order remain unchanged; partially covered edges still draw. */
+   if(cover_active&&covered(&coverage,x,y,x+16,y+(breath?32:16)))continue;
+   /* A partially covered compact sprite in one vertical curtain column
+    * only needs its visible rows. Keep source/destination row offsets exact;
+    * crossing column edges and mosaic covers retain the generic path. */
+   if(cover_active&&coverage.kind!=2u&&((unsigned)x>>7)==((unsigned)(x+15)>>7)){
+    int ya=y,yb=y+(breath?32:16);
+    if(((unsigned)x>>7)&1u){int edge=GAME_H-(int)coverage.height;if(yb>edge)yb=edge;}
+    else if(ya<(int)coverage.height)ya=(int)coverage.height;
+    if(ya!=y||yb!=y+(breath?32:16)){
+     if(yb>ya){unsigned at=n;n=sprite(top,bottom,out,n,back,src+(uint32_t)(ya-y)*64u,64u,x,ya,16,yb-ya,refl?240u:breath?145u:255u,1);
+      if(n!=at){reflected+=refl;pixels+=(unsigned)(yb-ya)*16u;if(out->templates)out->templates[(out->first+n-1u)&out->mask]=GFX_TEMPLATE_COVER_CHECKED;}}
+     continue;
+    }
    }
+   unsigned slot=(out->first+n)&out->mask;n++;
+   gfx_command *c=(gfx_command *)(void *)(out->base+slot*out->stride);
+   unsigned tag=refl?3u:breath?2u:1u;
+   unsigned previous=out->templates?out->templates[slot]:0u;
+   if(!(previous&GFX_TEMPLATE_CLASS_MASK)){
+    c->op=GFX_OP_BLEND|GFX_FLAG_PIXEL_ALPHA|GFX_FLAG_KEY;
+    c->width=16;c->src_stride=64;c->dst_stride=GAME_STRIDE;
+    c->color=0;c->key=GAME_KEY;c->seq=0;
+   }
+   if((previous&GFX_TEMPLATE_CLASS_MASK)!=tag){
+    c->height=breath?32u:16u;c->alpha=refl?240u:breath?145u:255u;
+   }
+   c->src=src;c->dst=back+(uint32_t)y*GAME_STRIDE+(uint32_t)x*4u;
+   /* This branch already proves clipping, fixed pitches and compact source
+    * bounds. Mark address validity only for the immutable physical layout. */
+   unsigned fact=tag;
+   if(baked==GAME_SCRATCH&&(back==GAME_FB0||back==GAME_FB1||back==GAME_FB2))fact|=GFX_TEMPLATE_PROVEN;
+   if(cover_active)fact|=GFX_TEMPLATE_COVER_CHECKED;
    if(out->templates&&previous!=fact)out->templates[slot]=(uint8_t)fact;
    reflected+=refl;pixels+=breath?512u:256u;continue;
   }else n=sprite(top,bottom,out,n,back,src,pitch,x,y,w,breath?32:16,refl?240u:breath?145u:255u,1);
@@ -732,7 +822,7 @@ static unsigned frame_commands(const danmaku_state *s,uint32_t back,const comman
  unsigned projectile_first=n;
  n+=bucket;
  if(bucket){sprites+=summary[0];friendly+=summary[1];hostile+=summary[0]-summary[1];if(stats)stats->blend_pixels+=summary[2];}
- else{n=projectile_direct(s,baked,back,out,n,top,bottom,summary);
+ else{n=(out->prefix&&s->rush_phase==DANMAKU_RUSH_TRANSITION)?projectile_cover_direct(s,baked,back,out,n,top,bottom,summary):projectile_direct(s,baked,back,out,n,top,bottom,summary);
   sprites+=summary[0];friendly+=summary[1];hostile+=summary[0]-summary[1];if(stats)stats->blend_pixels+=summary[2];}
  unsigned projectile_end=n;
  /* Projectiles and impact effects stay below fully opaque bosses. */
@@ -776,6 +866,19 @@ static unsigned frame_commands(const danmaku_state *s,uint32_t back,const comman
  }
  if(s->paused||s->game_over)n=rect(out,n,back,176,264,672,56,0x131b26u);
  if(stats){stats->sprites=sprites;stats->bullets=hostile;stats->reflected=friendly;stats->minions=minions;stats->commands=n;for(unsigned i=0;i<projectile_first;i++)if((command_at(out,i)->op&255u)==GFX_OP_BLEND)stats->blend_pixels+=command_at(out,i)->width*command_at(out,i)->height;for(unsigned i=projectile_end;i<n;i++)if((command_at(out,i)->op&255u)==GFX_OP_BLEND)stats->blend_pixels+=command_at(out,i)->width*command_at(out,i)->height;}return n;
+}
+/* The only moving framebuffer primitives during the closing transition.
+ * Keep their original direction, integer rounding, clipping and draw order. */
+#if defined(__GNUC__)
+__attribute__((section(".closing_code"),noinline,noclone))
+#endif
+unsigned danmaku_transition_chips(const danmaku_state *s,uint32_t back,gfx_command *out,unsigned cap){
+ if(cap<8u||!s->boss_wait)return 0;
+ const command_output output={(unsigned char *)out,0,~0u,sizeof(gfx_command),0,0,0};
+ unsigned n=0;int bx=div256(s->enemies[0].x),by=div256(s->enemies[0].y);
+ for(unsigned i=0;i<8u;i++){int ux,uy;direction(i*32u,&ux,&uy);int radius=72-(int)s->boss_wait;
+  n=rect(&output,n,back,bx+ux*radius/256-3,clamp(by+uy*radius/256,arena_top(s),arena_bottom(s)-6),6,6,0xe0a9ffu);}
+ return n;
 }
 static uint32_t texel(const mc_tex *t,unsigned x,unsigned y){unsigned i=y*t->w+x,k=t->idx[t->bpp==4u?i/2u:i];if(t->bpp==4u)k=(i&1u)?k&15u:k>>4;return t->pal[k];}
 unsigned danmaku_frame_commands(const danmaku_state *s,uint32_t back,gfx_command *out,unsigned cap,uint32_t baked,

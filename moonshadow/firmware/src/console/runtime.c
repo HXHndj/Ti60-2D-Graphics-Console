@@ -1,3 +1,4 @@
+#include "display_fps.h"
 #include "runtime.h"
 #include "mc_tile4_abi.h"
 #include "mc_sprite_bins.h"
@@ -287,24 +288,7 @@ int runtime_frame(console_runtime *r){
   }
  }
  uint64_t now=ticks(r);
- /* Real present completions over the latest three one-second buckets.
-  * Reset on context/diagnostic time-origin changes; never clamp or synthesize FPS. */
- if(r->fps_window_mark!=r->fps_mark){
-  r->fps_window_count=r->fps_window_next=0;r->fps_window_mark=r->fps_mark;
- }
- if(now-r->fps_mark>=r->tick_hz){
-  unsigned slot=r->fps_window_next;
-  r->fps_window_ticks[slot]=now-r->fps_mark;
-  r->fps_window_frames[slot]=r->present_count;
-  r->fps_window_next=(slot+1u)%3u;
-  if(r->fps_window_count<3u)r->fps_window_count++;
-  uint64_t duration=0;unsigned frames=0;
-  for(unsigned i=0;i<r->fps_window_count;i++){
-   duration+=r->fps_window_ticks[i];frames+=r->fps_window_frames[i];
-  }
-  s->fps10=(unsigned)((uint64_t)frames*r->tick_hz*10u/duration);
-  r->present_count=0;r->fps_mark=r->fps_window_mark=now;
- }
+ display_fps_poll(r,now);
  s->underflow=d->io.read(d->io.ctx,GFX_REG_DISP_UNDERFLOW);
  s->scan_error=d->io.read(d->io.ctx,GFX_REG_DISP_STATUS)>>2;
  if(s->scan_error){

@@ -91,8 +91,14 @@ typedef struct {
  gfx_text_frame text_frame;
  console_profile profile;
  console_profile last_profile; /* immutable until the next accepted present */
+ /* Due simulation work prepared only after all encoded buffers are owned by
+  * graphics/display. Scene-generation publication waits for the next draw. */
+ unsigned idle_prepared,idle_generation,idle_scene_generation;
+ unsigned idle_generation_delta,idle_scene_delta,idle_total,idle_discarded;
+ uint64_t idle_step_ticks;
 } console_runtime;
 void runtime_init(console_runtime *,gfx_device *,uint32_t,uint32_t *(*)(void *,uint32_t),void (*)(void *),void *);
 int runtime_frame(console_runtime *);
 int runtime_overlap(const console_runtime *);
+void runtime_prepare_idle(console_runtime *);
 #endif

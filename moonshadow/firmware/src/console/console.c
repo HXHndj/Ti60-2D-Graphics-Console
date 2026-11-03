@@ -94,6 +94,7 @@ uint32_t console_text_key(const console_state *s){
    TEXT_KEY(l->spirit_energy);TEXT_KEY(l->charge_ticks);
   TEXT_KEY(l->game_over);TEXT_KEY(l->won);TEXT_KEY(l->portal_state);TEXT_KEY(l->tile_mode);TEXT_KEY(l->paused);
   TEXT_KEY(l->combat_phase);TEXT_KEY(l->combat_alive);
+  TEXT_KEY(mc_layers_ritual_stage(l));TEXT_KEY(l->ritual_charge>=MC_RITUAL_CHARGE_TICKS);TEXT_KEY(l->ritual_casts);
   TEXT_KEY(l->combat_alive>>32u);
   TEXT_KEY(mc_layers_intro_active(l));
   TEXT_KEY(l->portal_ticks>=MC_PORTAL_READY_TICKS);
@@ -129,6 +130,7 @@ void console_text(const console_state *s,console_text_fn emit,void *ctx){
    if(l->game_over)prompt="PRESS 3 TO RESTART";
    else if(l->won)prompt="THE SHRINE IS SAVED";
    else if(l->portal_state==MC_PORTAL_ENTERING)prompt="CROSSING THE MOON GATE";
+   else if(l->ritual_state>=MC_RITUAL_READY&&l->ritual_state<=MC_RITUAL_RUNNING)prompt=mc_layers_ritual_prompt(l);
    else if(l->combat_phase==1u)prompt="HOLD 4, RELEASE TO CLEAR SPIRITS";
    else if(l->combat_phase==2u)prompt="SLASH FLOWER SPIRITS TO CHARGE THE TREE";
    else if(l->combat_phase==3u)prompt="HOLD 4 AT THE ALTAR, RELEASE TO FIRE";

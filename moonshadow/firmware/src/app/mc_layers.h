@@ -12,6 +12,7 @@ extern uint32_t mc_layers_collect_cycles,mc_layers_dirty_cycles,mc_layers_overla
 #include "gfx.h"
 #include "mc_tile4_abi.h"
 #include "page4_shared.h"
+#include "mc_shrine_ritual.h"
 #ifndef MC_GAME_ONLY
 #define MC_GAME_ONLY 1
 #endif
@@ -253,6 +254,8 @@ typedef struct {
  uint32_t combat_tree_kills;
  uint32_t combat_reflections,combat_chain_hits,combat_reflect_shield;
  uint32_t air_pursuit_used,air_hit_pause;
+ uint32_t ritual_state,ritual_charge,ritual_age;
+ uint32_t ritual_casts,ritual_cast_tick[3],ritual_finish_tick;
  mc_boss_bolt boss_bolts[MC_BOSS_BOLTS];
  int32_t slash_origin_x;
  int32_t slash_origin_y;
@@ -279,6 +282,12 @@ typedef struct {
 void mc_layers_init(mc_layer_state *);
 void mc_layers_step(mc_layer_state *,unsigned input);
 void mc_layers_set_demo(mc_layer_state *,unsigned enabled);
+/* Arm only a cleared phase-5 scene. Holding ACT at the altar and releasing
+ * after CHARGE_TICKS arms three input-triggered salvos and a held/released
+ * final slash. Time alone never opens or enters the gate. */
+unsigned mc_layers_ritual_arm(mc_layer_state *);
+unsigned mc_layers_ritual_stage(const mc_layer_state *);
+const char *mc_layers_ritual_prompt(const mc_layer_state *);
 unsigned mc_layers_set_force_full(mc_layer_state *,unsigned enabled);
 void mc_layers_select(mc_layer_state *,int direction);
 void mc_layers_toggle_selected(mc_layer_state *);

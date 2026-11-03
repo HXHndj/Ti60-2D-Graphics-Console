@@ -31,7 +31,7 @@
 #define STRESS_NON_SPRITE_COMMANDS 1u
 #if defined(MIRROR_KEY3)
 /* Game commands include scenery/HUD in addition to 1536 projectiles. */
-#define STRESS_COMMAND_CAP 2304u
+#define STRESS_COMMAND_CAP 2944u
 #else
 #define STRESS_COMMAND_CAP 1664u
 #endif

@@ -25,7 +25,21 @@ static uint32_t uart_keys_until;
 static uint32_t crc_table[256];
 /* The FIELD snapshot includes PROFILE/R3/R6/R6C/R6S/R6T. 1024 bytes
  * truncated R6T mid-record. This buffer is DDR BSS, not FPGA block RAM. */
-static char telemetry[2048];
+static char telemetry[4096];
+/* Diagnostic-only per-frame maxima; no pixel or gameplay changes. */
+static uint32_t peak_seen,peak_n,peak_slow,peak_two,peak_steps,peak_age,peak_phase,peak_boss;
+static uint32_t peak_step,peak_cmds,peak_render,peak_ready;
+static void peak_record(void){
+ if(app.frame_id==peak_seen)return;peak_seen=app.frame_id;
+ const console_profile *p=&app.last_profile;
+ if(!p->valid||app.state.page!=PAGE_EXTENSION)return;
+ peak_n++;peak_two+=p->game_steps>1u;
+ uint32_t a=(uint32_t)p->seg_step_ticks,b=(uint32_t)p->seg_cmds_ticks,c=(uint32_t)p->render_ticks,d=(uint32_t)p->ready_ticks;
+ peak_slow+=d>GFX_TIMER_HZ/60u;
+ if(a>peak_step)peak_step=a;if(b>peak_cmds)peak_cmds=b;if(c>peak_render)peak_render=c;
+ if(d>peak_ready){peak_ready=d;peak_steps=p->game_steps;peak_age=app.state.danmaku.boss_age;peak_phase=app.state.danmaku.rush_phase;peak_boss=app.state.danmaku.boss_kind;}
+}
+
 static unsigned telemetry_len,telemetry_pos;
 /* Board-runner controls. UART service only parses records into pending state;
  * the outer loop applies them between frames. */
@@ -370,6 +384,9 @@ int main(void){
 #endif
  r5_diag_present=device.io.read(device.io.ctx,GFX_REG_DISP_DIAG_VERSION)==0x5A01u;
  input_reset(&app.state.input,mono_ms);
+ /* Low256B are a guard, not stack. Upper1KiB are debug/trampoline. */
+ for(unsigned i=0;i<64u;i++)M(0xf9000000u+i*4u)=0xa55a0ff0u^i;
+ __asm__ volatile("fence iorw,iorw" ::: "memory");
  M(GFX_SCAN_MONITOR_BASE)=1;
  _Static_assert(GFX_TIMER_HZ==GFX_SYSTEM_HZ,"event wait/timer units must match");
  int event_mode=gfx_events_start(&events,&device,(gfx_event_platform){GFX_MTIME_LO_ADDR,GFX_MTIMECMP_ADDR,GFX_PLIC_BASE,GFX_IRQ_SOURCE,GFX_TIMER_HZ/1000},service,0);
@@ -503,6 +520,7 @@ int main(void){
 #else
   if(!frozen){int e=runtime_frame(&app);if(e!=0&&e!=GFX_EBUSY)halt(0xbad10000|(uint32_t)(-e));}
 #endif
+  peak_record();
   if(trace&&M(GFX_SCAN_MONITOR_BASE+4)!=last_capture){
    last_capture=M(GFX_SCAN_MONITOR_BASE+4);text("SCAN FRAME CRC PIXELS FRONT SHOWN ");hex(last_capture);put(' ');hex(M(GFX_SCAN_MONITOR_BASE+8));put(' ');hex(M(GFX_SCAN_MONITOR_BASE+16));put(' ');hex(M(GFX_MMIO_BASE+GFX_REG_DISP_FRONT_BASE));put(' ');hex(M(GFX_MMIO_BASE+GFX_REG_DISP_PRESENTED_ID));text("\r\n");
   }
@@ -568,6 +586,12 @@ int main(void){
       app.state.danmaku_stats.commands,app.state.danmaku.paused};
      for(unsigned i=0;i<7;i++){telemetry_hex(game[i]);telemetry_char(' ');}
      telemetry_text("\r\n");
+     telemetry_text("R11 N SLOW TWO STEP CMDS TAIL READY PSTEPS AGE PHASE BOSS ");
+     uint32_t maxima[]={peak_n,peak_slow,peak_two,peak_step,peak_cmds,peak_render,peak_ready,peak_steps,peak_age,peak_phase,peak_boss};
+     for(unsigned i=0;i<11u;i++){telemetry_hex(maxima[i]);telemetry_char(' ');}telemetry_text("\r\n");
+     peak_n=peak_slow=peak_two=peak_step=peak_cmds=peak_render=peak_ready=0;
+     telemetry_text("R14 IDLE TOTAL DROP STEP_TICKS ");telemetry_hex(app.idle_total);telemetry_char(' ');telemetry_hex(app.idle_discarded);telemetry_char(' ');telemetry_hex((uint32_t)app.idle_step_ticks);telemetry_text("\r\n");
+
     }
 #endif
     telemetry_text("STATS V2 FPS10 ");telemetry_hex(app.state.fps10);
@@ -652,6 +676,7 @@ int main(void){
   if(events.unexpected)halt(0xbad20000|events.unexpected);
   /* Keep UART diagnostics responsive. Text mailbox short waits use service,
      not this blocking event hook. Input/UART wake latency is bounded to 1 ms. */
+  if(!frozen)runtime_prepare_idle(&app);
   if(events.enabled&&!(M(GFX_UART_BASE+4)>>24)){
    if(frozen)gfx_wait_event(&device,GFX_WAIT_INPUT,0,device.io.ticks(0)+GFX_TIMER_HZ/1000);
    else if(runtime_overlap(&app)){

@@ -1,6 +1,11 @@
 #include "runtime.h"
 #include "stress_bucket.h"
 #include <string.h>
+#include "key3_rush_ui.h"
+#include "closing_patch.h"
+#ifdef MIRROR_KEY3
+#include "display_fps.h"
+#endif
 
 enum { RUNTIME_RENDER_CANCELLED = 1 };
 
@@ -168,8 +173,9 @@ static void stress_batch_idle(void *ctx){
 typedef struct {console_runtime *r;gfx_buffer *back;const gfx_ring_span *span;unsigned sent;int error;unsigned traced;} early_prefix;
 static int publish_prefix(void *ctx,unsigned count){
  early_prefix *p=ctx;gfx_device *d=p->r->device;
- if(!count)return 0;
- p->error=gfx_begin_frame(p->back);if(p->error)return p->error;
+ if(count<=p->sent)return 0;
+ if(!p->sent){p->error=gfx_begin_frame(p->back);if(p->error)return p->error;}
+ gfx_ring_span part=*p->span;part.first+=p->sent;part.next_seq+=p->sent;part.limit-=p->sent;
  unsigned flags=d->batch_flags;d->batch_flags=KEY3_BATCH_FLAGS|GFX_BATCH_OVERLAP;
  uint32_t seq=d->next_seq-1u;
  if(d->trace_next&&(d->caps&GFX_CAP_FRAME_TRACE)){
@@ -180,7 +186,7 @@ static int publish_prefix(void *ctx,unsigned count){
   d->io.write(d->io.ctx,GFX_REG_TRACE_CONTROL,1u);d->io.publish(d->io.ctx);
   d->trace_next=0;p->traced=1;
  }
- p->error=gfx_submit_ring(d,p->span,count,p->r->tick_hz,&seq);
+ p->error=gfx_submit_ring(d,&part,count-p->sent,p->r->tick_hz,&seq);
  d->batch_flags=flags;
  if(!p->error)p->sent=count;
  return p->error;
@@ -292,6 +298,10 @@ static gfx_command diagnostic_fill(uint32_t base){
 }
 
 void runtime_init(console_runtime *r,gfx_device *d,uint32_t hz,uint32_t *(*ptr)(void *,uint32_t),void (*poll)(void *),void *ctx){
+#if MIRROR_HAS_KEY3
+ memset(closing_patches,0,sizeof closing_patches);
+#endif
+
  memset(r,0,sizeof *r);r->device=d;r->tick_hz=hz;r->pixels=ptr;r->service=poll;r->context=ctx;
  r->buffers[0]=(gfx_buffer){GAME_FB0,0,GFX_SCANNING};r->buffers[1]=(gfx_buffer){GAME_FB1,0,GFX_FREE};
  r->buffer_count=2;r->next_buffer=1;
@@ -299,6 +309,9 @@ void runtime_init(console_runtime *r,gfx_device *d,uint32_t hz,uint32_t *(*ptr)(
   r->buffer_count=3;r->buffers[2]=(gfx_buffer){GAME_FB2,0,GFX_FREE};
  }
  r->fps_mark=r->logic_mark=ticks(r);console_init(&r->state,0);
+#ifdef MIRROR_KEY3
+ display_fps_reset();
+#endif
 #if MIRROR_HAS_KEY2
  console_stress_restore_set_text_plane(&r->state,(d->caps&GFX_CAP_TEXT_OVERLAY)!=0);
 #endif
@@ -308,6 +321,27 @@ void runtime_init(console_runtime *r,gfx_device *d,uint32_t hz,uint32_t *(*ptr)(
  console_set_pool(&r->state,ptr,ctx);
 }
 
+/* Graphics consumes immutable descriptors and atlas pixels, never actors.
+ * Execute at most one already-due simulation tick in otherwise idle display
+ * wait time. Do not predict time, drop ticks, copy the scene, or touch the
+ * graphics pool. A queued old-scene READY frame keeps its valid ownership. */
+void runtime_prepare_idle(console_runtime *r){
+#if MIRROR_HAS_KEY3
+ console_state *s=&r->state;
+ if(r->idle_prepared||!runtime_overlap(r)||!s->danmaku.rush_enabled||s->danmaku.paused||s->paused||s->error||
+    s->danmaku.rush_phase!=DANMAKU_RUSH_COMBAT)return;
+ for(unsigned i=0;i<r->buffer_count;i++)if(r->buffers[i].state==GFX_FREE||r->buffers[i].state==GFX_RENDERING||r->buffers[i].state==GFX_INVALID)return;
+ uint64_t now=ticks(r),period=r->tick_hz/60u;if(now-r->logic_mark<period)return;
+ unsigned gen=s->generation,scene=s->stress_scene_generation;
+ danmaku_timing_set(0);console_step(s);r->logic_mark+=period;
+ r->idle_step_ticks=ticks(r)-now;r->idle_prepared=1;r->idle_total++;
+ r->idle_generation=gen;r->idle_scene_generation=scene;
+ r->idle_generation_delta=s->generation-gen;r->idle_scene_delta=s->stress_scene_generation-scene;
+ s->generation=gen;s->stress_scene_generation=scene;
+#else
+ (void)r;
+#endif
+}
 int runtime_frame(console_runtime *r){
  console_state *s=&r->state;gfx_device *d=r->device;
  uint64_t begin=ticks(r);service(r);
@@ -358,7 +392,11 @@ int runtime_frame(console_runtime *r){
  if(r->stress_hold&&r->stress_diagnostic_visible)return GFX_EBUSY;
 #endif
  uint64_t now=ticks(r);
+#ifdef MIRROR_KEY3
+ display_fps_poll(r,now);
+#else
  if(now-r->fps_mark>=r->tick_hz){s->fps10=(unsigned)udiv64_32((uint64_t)r->present_count*r->tick_hz*10u,(uint32_t)(now-r->fps_mark));r->present_count=0;r->fps_mark=now;}
+#endif
  s->underflow=d->io.read(d->io.ctx,GFX_REG_DISP_UNDERFLOW);
  s->scan_error=d->io.read(d->io.ctx,GFX_REG_DISP_STATUS)>>2;
  if(s->scan_error){
@@ -408,6 +446,14 @@ int runtime_frame(console_runtime *r){
   if(r->buffers[i].state==GFX_FREE){back=&r->buffers[i];r->next_buffer=(i+1u)%r->buffer_count;break;}
  }
  if(!back)return GFX_EBUSY;
+#if MIRROR_HAS_KEY3
+ if(r->idle_prepared){
+  if(s->generation==r->idle_generation&&s->stress_scene_generation==r->idle_scene_generation){
+   s->generation+=r->idle_generation_delta;s->stress_scene_generation+=r->idle_scene_delta;
+  }else r->idle_discarded++;
+  r->idle_prepared=0;r->idle_generation_delta=r->idle_scene_delta=0;
+ }
+#endif
  uint64_t seg_hk_end=ticks(r);
  if(r->debug_flip_only){
   r->profile.valid=0;r->ready_profile_pending=0;
@@ -495,6 +541,11 @@ int runtime_frame(console_runtime *r){
  uint64_t seg_cache_end=ticks(r);
 #if MIRROR_HAS_KEY3
  unsigned hud_index=frame_buffer_index(r,back);
+ closing_patch *closing=&closing_patches[hud_index];unsigned closing_x=0,closing_y=0,closing_write=0;
+ unsigned closing_ok=(d->caps&GFX_CAP_TEXT_OVERLAY)&&!s->backend_sw&&!s->error&&!r->debug_flip_only&&s->danmaku.rush_phase==DANMAKU_RUSH_TRANSITION&&s->danmaku.transition_tick<32u&&closing_region(r,&closing_x,&closing_y);
+ unsigned closing_reuse=closing_ok&&closing_match(closing,r,closing_x,closing_y);
+ closing->valid=0; /* A failed or cancelled render never publishes cached ownership. */
+
  if(s->danmaku.rush_enabled&&(s->danmaku.rush_phase!=DANMAKU_RUSH_COMBAT||s->danmaku.paused)){
   hud_enabled=0;invalidate_hud(r);
  }
@@ -517,6 +568,7 @@ int runtime_frame(console_runtime *r){
 #endif
  if(diagnostic_frame){r->commands[0]=diagnostic_fill(back->base);n=1;}
 #if MIRROR_HAS_KEY3
+ else if(closing_reuse)n=closing_build(r,closing,hud_index,back->base);
  else if(game_bucket)n=console_game_bucket_commands(s,back->base,r->commands,STRESS_COMMAND_CAP,&r->bucket_stats);
  else if(s->page==PAGE_EXTENSION&&!s->backend_sw&&s->danmaku.rush_enabled&&s->rush_ui_cached&&
    s->danmaku.rush_phase==DANMAKU_RUSH_TRANSITION&&runtime_overlap(r)&&
@@ -524,12 +576,14 @@ int runtime_frame(console_runtime *r){
    s->backdrop_baked==MC_BACKDROP_DANMAKU_1&&back->base!=GAME_SCRATCH&&
    s->danmaku.target+384u<=STRESS_COMMAND_CAP&&!gfx_ring_reserve_templates(d,s->danmaku.target+384u,&ring_span)){
   n=console_transition_ring_commands(s,back->base,&ring_span,r->commands,publish_prefix,&early,&early.sent);
+  if(n&&closing_ok&&!early.error)closing_write=closing_capture(r,closing,hud_index,back->base,&ring_span,early.sent,&n,closing_x,closing_y);
+
   if(early.error||!n){int drain=gfx_fence(d,d->next_seq-1u,r->tick_hz);back->state=GFX_INVALID;return drain?drain:early.error?early.error:GFX_EINVAL;}
   if(early.traced){d->io.write(d->io.ctx,GFX_REG_TRACE_LAST_SEQ,d->next_seq+n-early.sent-1u);d->io.publish(d->io.ctx);}
   n-=early.sent;ring_span.first+=early.sent;ring_span.next_seq+=early.sent;ring_span.limit-=early.sent;prebuilt=&ring_span;
  }
  else if(s->page==PAGE_EXTENSION&&!s->backend_sw&&s->danmaku.rush_enabled&&s->rush_ui_cached&&
-   s->danmaku.rush_phase==DANMAKU_RUSH_COMBAT&&!s->danmaku.paused&&
+   s->danmaku.rush_phase==DANMAKU_RUSH_COMBAT&&
    s->backdrop_baked==MC_BACKDROP_DANMAKU_1&&back->base!=GAME_SCRATCH&&
    s->danmaku.target+160u<=STRESS_COMMAND_CAP&&
    !gfx_ring_reserve_templates(d,s->danmaku.target+160u,&ring_span)){
@@ -740,6 +794,7 @@ int runtime_frame(console_runtime *r){
  r->buffer_diagnostic[buffer_index]=diagnostic_frame;
 #if MIRROR_HAS_KEY3
  r->game_hud[buffer_index]=hud_next;
+ if(closing_write||closing_reuse)closing_commit(closing,r);
 #endif
 #if MIRROR_HAS_KEY2
  if(diagnostic_frame)console_stress_restore_invalidate(s,back->base);

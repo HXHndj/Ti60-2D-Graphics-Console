@@ -24,6 +24,8 @@ typedef struct {
 static phase_stats phase_book[8];
 static uint32_t phase_last_tick,phase_last_miss;
 static unsigned phase_sample_valid;
+static uint32_t slow_frames[64][8];
+static unsigned slow_count;
 static void telemetry_pump(void){
  unsigned available=(M(GFX_UART_BASE+4)>>16)&255u;
  while(available&&telemetry_pos<telemetry_len){M(GFX_UART_BASE)=(unsigned char)telemetry[telemetry_pos++];available--;}
@@ -51,6 +53,7 @@ static void phase_reset(void){
   __builtin_memset(p,0,sizeof *p);p->visible_min=0xffffffffu;
  }
  phase_sample_valid=0u;phase_last_miss=0u;
+ slow_count=0u;
 }
 static void record_stats(phase_stats *p,const mc_layer_state *l,
                          unsigned ready,unsigned miss_delta){
@@ -80,6 +83,11 @@ static void record_stats(phase_stats *p,const mc_layer_state *l,
  p->look+=app.profile.lookahead_ticks;p->fence+=app.profile.fence_ticks;
  unsigned prep=(unsigned)(app.profile.prepare_ticks/(GFX_TIMER_HZ/1000000u));
  unsigned render=(unsigned)(app.profile.render_ticks/(GFX_TIMER_HZ/1000000u));
+ if(l->combat_phase==5u&&render>15500u&&slow_count<64u){
+  uint32_t *v=slow_frames[slow_count++];v[0]=l->tick;v[1]=l->ritual_age;
+  v[2]=l->ritual_casts;v[3]=l->ritual_finish_tick?l->tick-l->ritual_finish_tick:0u;
+  v[4]=prep;v[5]=render;v[6]=l->measured_read_bytes;v[7]=l->submitted_tiles;
+ }
  if(prep>p->prep_max)p->prep_max=prep;if(render>p->render_max)p->render_max=render;
 }
 static void phase_record(void){
@@ -108,6 +116,11 @@ static unsigned phase_percentile(const phase_stats *p,unsigned percentile){
 }
 static void phase_dump(void){
  telemetry_flush();
+ for(unsigned i=0;i<slow_count;i++){
+  telemetry_text("MCSLOW");
+  for(unsigned j=0;j<8u;j++){telemetry_char(' ');telemetry_uint(slow_frames[i][j]);}
+  telemetry_text("\r\n");telemetry_flush();
+ }
  for(unsigned stage=0;stage<8u;stage++){
   const phase_stats *p=&phase_book[stage];if(!p->n)continue;
   telemetry_text("MCGAME STAGE=");telemetry_uint(stage);
@@ -215,6 +228,8 @@ int main(void){
  console_page4(&app.state,(uint32_t)(device.io.ticks(0)/(GFX_TIMER_HZ/1000)));
  input_reset(&app.state.input,(uint32_t)(device.io.ticks(0)/(GFX_TIMER_HZ/1000)));
  M(GFX_SCAN_MONITOR_BASE)=1;
+ /* Keep presentation-event counters running for the five-second HUD. */
+ M(GFX_SCAN_MONITOR_BASE+24)=1;
  _Static_assert(GFX_TIMER_HZ==GFX_SYSTEM_HZ,"event wait/timer units must match");
  int event_mode=gfx_events_start(&events,&device,(gfx_event_platform){GFX_MTIME_LO_ADDR,GFX_MTIMECMP_ADDR,GFX_PLIC_BASE,GFX_IRQ_SOURCE,GFX_TIMER_HZ/1000},service,0);
  if(event_mode&&event_mode!=GFX_EUNSUPPORTED)halt(0xbad00002);

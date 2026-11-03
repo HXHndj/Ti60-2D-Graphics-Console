@@ -116,15 +116,24 @@ int mc_sprite_bins_build(const gfx_command *overlay,unsigned count,
      c->src_stride==64u&&(c->src&1023u)==0u)
    flags|=MC_TILE4_TILED;
   uint32_t color=c->color;
+  unsigned source_offset=0u;
+  uint32_t source=c->src;
+  if(op!=GFX_OP_FILL&&c->src_stride==64u&&c->width<=16u&&c->height<=16u&&
+     mc_layers_sprite_row_mask(c->src&~1023u)){
+   source_offset=c->src&1023u;
+   if((source_offset%64u)/4u+c->width<=16u&&source_offset/64u+c->height<=16u){
+    flags|=MC_TILE4_TILED;source=c->src&~1023u;
+   }else source_offset=0u;
+  }
   if((flags&MC_TILE4_TILED)&&(flags&MC_TILE4_KEY)&&
      (flags&MC_TILE4_PIXEL_ALPHA)){
-   uint32_t mask=mc_layers_sprite_row_mask(c->src);
+   uint32_t mask=mc_layers_sprite_row_mask(source);
    if(mask)color=mask;
   }
   mc_tile4_descriptor d={
    MC_TILE4_CONTROL(op==GFX_OP_FILL?MC_TILE4_TYPE_SOLID:MC_TILE4_TYPE_IMAGE,flags),
-   c->src,MC_TILE4_PACK_XY(x0,y0),MC_TILE4_PACK_WH(c->width,c->height),
-   c->src_stride,color,MC_TILE4_PACK_AZS(op==GFX_OP_BLEND?c->alpha:255u,0u,0,0),c->key};
+   source,MC_TILE4_PACK_XY(x0,y0),MC_TILE4_PACK_WH(c->width,c->height),
+   c->src_stride,color,MC_TILE4_PACK_AZS(op==GFX_OP_BLEND?c->alpha:255u,0u,(source_offset%64u)/4u,source_offset/64u),c->key};
   for(unsigned ref=command_first[i];ref<command_first[i+1u];ref++){
    unsigned tile=reference_tiles[ref];entry[tile_first[tile]++]=d;
   }

@@ -36,15 +36,30 @@ SECTIONS {
   _key3_projectile_hot_end = .;
   ASSERT(_key3_projectile_hot_end - _key3_projectile_hot_start <= 4096,
          "KEY3 projectile working set exceeds instruction cache page");
+  /* Transition-only clipping keeps the combat loop's register allocation
+     intact. Offset one cache page by1KiB to retain the shared sprite clipper. */
+  . = ALIGN(4096); . += 1024;
+  _key3_cover_hot_start = .;
+  KEEP(*(.text.key3_projectile_cover_hot))
+  _key3_cover_hot_end = .;
+  ASSERT(_key3_cover_hot_end-_key3_cover_hot_start <= 3072, "Transition working set exceeds remaining cache indices");
+  . = ALIGN(4096);
   *(.text*) *(.rodata*)
+  KEEP(*(.closing_code))
+  KEEP(*(.fps_code))
+  /* Retain baseline DDR data-cache indices after adding cold patch code. */
+  . = ALIGN(4096)+0xcc8;
  } > APP
  .data : { *(.data*) *(.sdata*) . = ALIGN(4); } > APP
- .bss (NOLOAD) : { . = ALIGN(16); _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(16); _bss_end = .; } > APP
+ .bss (NOLOAD) : { . = ALIGN(16); _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(16); *(.closing_state) . = ALIGN(16); *(.fps_state) . = ALIGN(16); _bss_end = .; } > APP
  _end = _bss_end; end = _end;
- _stack_top = ORIGIN(APP) + LENGTH(APP);
+ /* The4KiB on-chip RAM's top1KiB remains reserved for the debugger and
+  * reload trampoline. The active DDR app no longer executes the boot copy. */
+ _stack_top = 0xf9000c00;
+ _stack_bottom = 0xf9000100;
  ASSERT(_key3_submit_hot_end-_key3_submit_hot_start <= 4096, "KEY3 submit working set exceeds L1I page")
  ASSERT(_key3_validate_hot_end-_key3_validate_hot_start <= 1024, "KEY3 validator exceeds reserved cache indices")
  ASSERT(_key3_collide_hot_end-_key3_collide_hot_start <= 4096, "KEY3 collision working set exceeds L1I page")
- ASSERT(_bss_end + 16384 <= _stack_top, "Application and stack overlap")
+ ASSERT(_bss_end + 16384 <= ORIGIN(APP)+LENGTH(APP), "Application exceeds DDR APP")
  ASSERT(ORIGIN(APP)+LENGTH(APP)<=0x01000000, "Application overlaps graphics")
 }

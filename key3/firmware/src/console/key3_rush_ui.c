@@ -39,7 +39,7 @@ static void bake_common(uint32_t *top,uint32_t *bottom,uint32_t *cover){
   mc_paint_fill(x-40,262,208,28,0x303030);
   mc_paint_mctext_c(x+64,268,danmaku_boss_name(j),0xffffb0u,2);
  }
- for(unsigned j=0;j<DANMAKU_LOAD_COUNT;j++){char b[16];mc_snprintf(b,sizeof b,"%u",danmaku_load_presets[j].load);mc_paint_button((int)rush_load_x(j),RUSH_LOAD_Y,RUSH_LOAD_W,RUSH_LOAD_H,b,MC_BTN_NORMAL,2);}
+ for(unsigned j=0;j<DANMAKU_MENU_LOAD_COUNT;j++){char b[16];mc_snprintf(b,sizeof b,"%u",danmaku_menu_loads[j]);mc_paint_button((int)rush_load_x(j),RUSH_LOAD_Y,RUSH_LOAD_W,RUSH_LOAD_H,b,MC_BTN_NORMAL,2);}
  mc_paint_mctext_c(512,398,"CHOOSE YOUR SPRITE PRESET",0xffeea0u,2);
  mc_paint_mctext_c(512,428,"10000 POINTS / -100 PER HIT / NO DEATH",0xc8c8c8u,2);
  mc_paint_button(64,476,280,44,"1 / PREVIOUS",MC_BTN_NORMAL,2);
@@ -99,7 +99,8 @@ unsigned key3_rush_commands(console_state *s,uint32_t base,gfx_command *out,unsi
  * Dynamic score/time/hits remain on the original per-frame text plane. */
 static void bake_result(console_state *s){
  if(s->backdrop_baked!=MC_BACKDROP_DANMAKU_1)return;
- gfx_command list[160];unsigned phase=s->danmaku.rush_phase;
+ static gfx_command list[160]; /* cold, non-reentrant UI bake; keep off OCRAM stack */
+ unsigned phase=s->danmaku.rush_phase;
  s->danmaku.rush_phase=DANMAKU_RUSH_RESULT;
  unsigned n=key3_rush_commands(s,RUSH_RESULT_BASE,list,160u,GAME_SCRATCH);
  s->danmaku.rush_phase=(uint16_t)phase;

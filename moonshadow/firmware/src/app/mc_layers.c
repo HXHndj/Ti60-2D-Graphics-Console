@@ -70,12 +70,13 @@ static uint32_t layer_cycles(void){
 #define GOLDEN_FX_CACHE_AMBIENT 8u
 #define GOLDEN_FX_CACHE_COMPANION 24u
 #define GOLDEN_FX_CACHE_CELLS 28u
+static uint32_t ritual_tile_row_mask(uint32_t source);
 static uint32_t golden_fx_row_masks[GOLDEN_FX_CACHE_CELLS];
 static unsigned golden_fx_row_masks_ready;
 uint32_t mc_layers_sprite_row_mask(uint32_t source){
  if(!golden_fx_row_masks_ready||source<GOLDEN_FX_CACHE_BASE||
     source>=GOLDEN_FX_CACHE_BASE+GOLDEN_FX_CACHE_CELLS*GOLDEN_FX_CACHE_CELL||
-    ((source-GOLDEN_FX_CACHE_BASE)&(GOLDEN_FX_CACHE_CELL-1u)))return 0u;
+    ((source-GOLDEN_FX_CACHE_BASE)&(GOLDEN_FX_CACHE_CELL-1u)))return ritual_tile_row_mask(source);
  return golden_fx_row_masks[(source-GOLDEN_FX_CACHE_BASE)/GOLDEN_FX_CACHE_CELL];
 }
 #define GOLDEN_SLASH_BASE (GOLDEN_BOSS_BASE+GOLDEN_BOSS_W*GOLDEN_BOSS_H*4u)
@@ -110,6 +111,25 @@ uint32_t mc_layers_sprite_row_mask(uint32_t source){
 #define PLAYER_DRAW_W 80u
 #define PLAYER_DRAW_H 120u
 #define PLAYER_ATLAS_STRIDE (PLAYER_DRAW_W*4u)
+/* Three immutable192x192 finisher images in the unused FB0 tail after
+ * the player atlas. Rendering never writes scanout pixels or bin tables. */
+#define GOLDEN_RITUAL_SLASH_SIZE 192u
+#define GOLDEN_RITUAL_SLASH_CELL (192u*192u*4u)
+#define GOLDEN_RITUAL_SLASH_BASE ((GAME_PLAYER_ATLAS+PLAYER_ATLAS_STRIDE*PLAYER_DRAW_H*4u*4u+32767u)&~32767u)
+_Static_assert(GOLDEN_RITUAL_SLASH_BASE>=GAME_PLAYER_ATLAS+PLAYER_ATLAS_STRIDE*PLAYER_DRAW_H*4u*4u,"Ritual art overlaps player atlas");
+_Static_assert(GOLDEN_RITUAL_SLASH_BASE+3u*GOLDEN_RITUAL_SLASH_CELL<=GAME_FB1,"Ritual art overlaps framebuffer1");
+#define GOLDEN_RITUAL_TILED_BASE ((GOLDEN_RITUAL_SLASH_BASE+3u*GOLDEN_RITUAL_SLASH_CELL+32767u)&~32767u)
+_Static_assert(GOLDEN_RITUAL_TILED_BASE+3u*GOLDEN_RITUAL_SLASH_CELL<=GAME_FB1,"Ritual tiled art overlaps framebuffer1");
+static uint32_t ritual_tile_masks[3][144];
+static uint8_t ritual_visible_tiles[3][144];
+static unsigned ritual_tile_counts[3];
+static uint16_t ritual_occupied_rows[3][12];
+static uint8_t ritual_cell_bounds[3][144][4];
+static uint32_t ritual_tile_row_mask(uint32_t source){
+ if(source<GOLDEN_RITUAL_TILED_BASE||source>=GOLDEN_RITUAL_TILED_BASE+3u*GOLDEN_RITUAL_SLASH_CELL||((source-GOLDEN_RITUAL_TILED_BASE)&1023u))return 0u;
+ unsigned index=(source-GOLDEN_RITUAL_TILED_BASE)/1024u;
+ return ritual_tile_masks[index/144u][index%144u];
+}
 #define COMBAT_WAVE1_ENEMIES 48u
 #define COMBAT_WAVE2_ENEMIES 44u
 #define COMBAT_CHARGE_TICKS 18u
@@ -149,6 +169,8 @@ uint32_t mc_layers_sprite_row_mask(uint32_t source){
  * Cropping changes work, never the sprite's position, size or visible pixels. */
 typedef struct {uint8_t left,top,right,bottom;} sprite_bounds;
 static sprite_bounds combat_source_bounds[25];
+static sprite_bounds guide_bounds[64];
+static uint32_t guide_coverage[64][12];
 static uint32_t combat_coverage[25][24];
 static unsigned combat_source_bounds_ready;
 static void combat_bounds_bake(void *memory){
@@ -168,10 +190,25 @@ static void combat_bounds_bake(void *memory){
   }
   combat_source_bounds[i]=b;
  }
+ for(unsigned i=0;i<64u;i++){
+  const uint32_t *pixels=(const uint32_t *)((uint8_t *)memory+(int32_t)(GOLDEN_GUIDE_BASE-GOLDEN_FAR_BASE))+i*48u*48u;
+  sprite_bounds b={48u,48u,0u,0u};memset(guide_coverage[i],0,sizeof guide_coverage[i]);
+  for(unsigned y=0;y<48u;y++)for(unsigned x=0;x<48u;x++){
+   uint32_t p=pixels[y*48u+x];if(!(p>>24u)||(p&0xffffffu)==GAME_KEY)continue;
+   guide_coverage[i][y/4u]|=1u<<(x/4u);
+   if(x<b.left)b.left=x;if(y<b.top)b.top=y;
+   if(x+1u>b.right)b.right=x+1u;if(y+1u>b.bottom)b.bottom=y+1u;
+  }guide_bounds[i]=b;
+ }
  combat_source_bounds_ready=1u;
 }
 int mc_layers_source_coverage(uint32_t source,uint32_t stride,mc_source_coverage *out){
  if(!combat_source_bounds_ready)return 0;
+ if(stride==192u&&source>=GOLDEN_GUIDE_BASE&&source<GOLDEN_GUIDE_BASE+GOLDEN_GUIDE_BYTES){
+  unsigned offset=(source-GOLDEN_GUIDE_BASE)/4u;
+  out->rows=guide_coverage[offset/(48u*48u)];offset%=48u*48u;
+  out->x=offset%48u;out->y=offset/48u;return 1;
+ }
  unsigned index,x,y;
  if(stride==48u*4u&&source>=GOLDEN_MONSTER_BASE&&source<GOLDEN_MONSTER_BASE+GOLDEN_MONSTER_BYTES){
   unsigned offset=source-GOLDEN_MONSTER_BASE;index=offset/(48u*48u*4u);
@@ -917,6 +954,64 @@ void mc_layers_bake(void *memory,void *tiled_memory,void *player_atlas){
  golden_rect(column,18,0,12,48,0x18ffcc78u);
  golden_rect(column,22,0,4,48,0x70ffdc97u);
  golden_rect(column,23,0,2,48,0xe0fff0cbu);
+ /* Filled crescent and contact flash are generated once, not per frame. */
+ for(unsigned frame=0;frame<3u;frame++){
+  uint32_t *dst=(uint32_t *)((uint8_t *)player_atlas+GOLDEN_RITUAL_SLASH_BASE-GAME_PLAYER_ATLAS+frame*GOLDEN_RITUAL_SLASH_CELL);
+  golden_surface image={dst,192u,192u,192u};golden_clear(image,GOLDEN_KEY);
+  for(int y=0;y<192;y++)for(int x=0;x<192;x++){
+   unsigned a=0u;uint32_t rgb=0;
+   if(frame<2u){
+    int xx=frame?191-x:x,dy=y-96,ay=dy<0?-dy:dy;
+    if(ay>90)continue;
+    int edge=157-dy*dy/100,thickness=(90-ay)*32/90;
+    int d=edge-xx;
+    if(d>=0&&d<=thickness){
+     a=d<4?255u:d<12?235u:175u;
+     rgb=d<4?0xf3ffffu:d<12?0x8cefffu:0x3499f0u;
+    }else if(d<0&&d>=-5){a=(unsigned)(6+d)*18u;rgb=0x64caffu;}
+    else if(d>thickness&&d<thickness+12){a=(unsigned)(thickness+12-d)*5u;rgb=0x377be3u;}
+    if(ay>74)a=a*(unsigned)(90-ay)/16u;
+   }else{
+    int dx=x-96,dy=y-96,ax=dx<0?-dx:dx,ay=dy<0?-dy:dy,r2=dx*dx+dy*dy;
+    if(r2<144){a=255u;rgb=0xf4ffffu;}
+    else if(r2<1225){a=(1225u-(unsigned)r2)*140u/1081u;rgb=0x70d9ffu;}
+    if(r2<8100&&(ax<3||ay<3||(ax-ay<3&&ay-ax<3))){
+     unsigned ray=(8100u-(unsigned)r2)*235u/8100u;
+     if(ray>a){a=ray;rgb=0xd4fbffu;}
+    }
+   }
+   if(a)dst[y*192+x]=(a<<24)|rgb;
+  }
+ }
+ /* Pack exact pixels into aligned16x16 cells. Only proven-empty cells
+  * are omitted; ordering and original row-major oracle remain unchanged. */
+ for(unsigned frame=0;frame<3u;frame++){
+  const uint32_t *src=(const uint32_t *)((const uint8_t *)player_atlas+GOLDEN_RITUAL_SLASH_BASE-GAME_PLAYER_ATLAS+frame*GOLDEN_RITUAL_SLASH_CELL);
+  uint32_t *dst=(uint32_t *)((uint8_t *)player_atlas+GOLDEN_RITUAL_TILED_BASE-GAME_PLAYER_ATLAS+frame*GOLDEN_RITUAL_SLASH_CELL);
+  ritual_tile_counts[frame]=0u;memset(ritual_occupied_rows[frame],0,sizeof ritual_occupied_rows[frame]);
+  for(unsigned cell=0;cell<144u;cell++){
+   unsigned tx=(cell%12u)*16u,ty=(cell/12u)*16u;uint32_t mask=0u;
+   unsigned minx=16u,miny=16u,maxx=0u,maxy=0u;
+   for(unsigned y=0;y<16u;y++)for(unsigned x=0;x<16u;x++){
+    uint32_t v=src[(ty+y)*192u+tx+x];dst[cell*256u+y*16u+x]=v;
+    if((v>>24u)&&((v&0xffffffu)!=GAME_KEY)){
+     mask|=1u<<y;if(x<minx)minx=x;if(y<miny)miny=y;
+     if(x+1u>maxx)maxx=x+1u;if(y+1u>maxy)maxy=y+1u;
+    }
+   }
+   unsigned first=0u,last=16u;
+   while(first<16u&&!(mask&(1u<<first)))first++;
+   if(first<16u){while(last>first&&!(mask&(1u<<(last-1u))))last--;
+    ritual_visible_tiles[frame][ritual_tile_counts[frame]++]=(uint8_t)cell;
+    ritual_occupied_rows[frame][cell/12u]|=(uint16_t)(1u<<(cell%12u));
+   }
+   ritual_tile_masks[frame][cell]=0x80000000u|mask|(first<<16u)|(last<<21u);
+   ritual_cell_bounds[frame][cell][0]=(uint8_t)minx;
+   ritual_cell_bounds[frame][cell][1]=(uint8_t)miny;
+   ritual_cell_bounds[frame][cell][2]=(uint8_t)maxx;
+   ritual_cell_bounds[frame][cell][3]=(uint8_t)maxy;
+  }
+ }
  golden_swizzle((uint32_t *)tiled_memory,far);
  golden_swizzle((uint32_t *)((uint8_t *)tiled_memory+GOLDEN_FAR_BYTES),air);
  golden_swizzle((uint32_t *)((uint8_t *)tiled_memory+GOLDEN_FAR_BYTES+GOLDEN_AIR_BYTES),world);
@@ -1215,6 +1310,7 @@ static void combat_boss_projectiles(mc_layer_state *s){
 }
 static void combat_begin(mc_layer_state *s,unsigned phase){
  s->combat_phase=phase;s->combat_start_tick=s->tick;
+ if(phase==1u)s->ritual_state=s->ritual_charge=s->ritual_age=0u;
  s->combat_clear_tick=0u;
  s->combat_alive=phase==1u?COMBAT_WAVE1_MASK:phase==2u?COMBAT_WAVE2_MASK:
   phase==3u?UINT64_C(0xffffff):phase==4u?UINT64_C(1):UINT64_C(0);
@@ -1229,6 +1325,8 @@ static void combat_begin(mc_layer_state *s,unsigned phase){
   memset(s->combat_dead_tick,0,sizeof s->combat_dead_tick);}
  fx_cache_valid=0u;
 }
+#include "mc_shrine_ritual_logic.inc"
+
 void mc_layers_set_demo(mc_layer_state *state,unsigned enabled){
  state->fx_inspector=0u;
  state->demo=enabled?1u:0u;state->end_ticks=0u;
@@ -1258,6 +1356,12 @@ unsigned mc_layers_set_force_full(mc_layer_state *state,unsigned enabled){
 static unsigned ruins_demo_input(const mc_layer_state *state){
  if(state->tick<30u)return 0u;
  if(state->won||state->game_over)return state->end_ticks>=180u?MC_LAYER_INPUT_JUMP:0u;
+ if(state->ritual_state==MC_RITUAL_READY||state->ritual_state==MC_RITUAL_CHARGING){
+  if(state->player_x>GOLDEN_TERMINAL_X-60)return MC_LAYER_INPUT_LEFT;
+  if(state->player_x<GOLDEN_TERMINAL_X-75)return MC_LAYER_INPUT_RIGHT;
+  return state->ritual_charge<MC_RITUAL_CHARGE_TICKS?MC_LAYER_INPUT_ACTION:0u;
+ }
+ if(state->ritual_state==MC_RITUAL_RUNNING)return ritual_demo_buttons(state);
  if(state->combat_phase==3u){
   if(!state->combat_alive)return 0u;
   if(state->player_x>GOLDEN_TERMINAL_X-60)return MC_LAYER_INPUT_LEFT;
@@ -1340,6 +1444,7 @@ void mc_layers_step(mc_layer_state *state,unsigned input){
  unsigned pressed=input&~state->player_input;
  unsigned released=state->player_input&~input;
  state->player_input=input;
+
   if(state->portal_state==MC_PORTAL_ENTERING){
   state->tick++;state->portal_ticks++;
   state->player_vx=state->player_vy=0;
@@ -1440,6 +1545,8 @@ if(state->player_grounded&&!state->landing_ticks&&previous_y<state->player_y){
  int center=state->player_x+32;
  unsigned near_terminal=state->player_y>=GOLDEN_PLAYER_GROUND_Y-64&&
   state->player_y<=GOLDEN_PLAYER_GROUND_Y&&center>=GOLDEN_TERMINAL_X-86&&center<=GOLDEN_TERMINAL_X-20;
+ if(ritual_running_step(state,input,pressed,released))return;
+ if(ritual_charge_step(state,input,released,near_terminal))return;
  if(!state->player_grounded&&(pressed&MC_LAYER_INPUT_ACTION)&&
     !state->air_pursuit_used&&state->combat_phase<5u){
   state->air_pursuit_used=1u;state->player_vy=-5;
@@ -1577,6 +1684,7 @@ if(state->player_grounded&&!state->landing_ticks&&previous_y<state->player_y){
       state->world_flags|=MC_RUINS_CORE|MC_RUINS_BRIDGE|MC_RUINS_PORTAL;
       state->portal_state=MC_PORTAL_ACTIVE;state->portal_ticks=0u;
       combat_begin(state,5u);
+      mc_layers_ritual_arm(state);
      }else combat_begin(state,state->combat_phase==2u?4u:state->combat_phase+1u);
     }
   }
@@ -1618,7 +1726,7 @@ if(state->player_grounded&&!state->landing_ticks&&previous_y<state->player_y){
  }
 #endif
  if((state->world_flags&MC_RUINS_BROKEN)&&!(state->world_flags&MC_RUINS_PORTAL)
-    &&!state->pattern_active){
+    &&!state->pattern_active&&state->ritual_state==MC_RITUAL_NONE){
   if(state->pattern_age<120u)state->pattern_age++;
   unsigned arrived=state->pattern_age>=112u?3u:
     state->pattern_age>=80u?2u:state->pattern_age>=48u?1u:0u;
@@ -1827,9 +1935,12 @@ static unsigned combat_enemy_records(const mc_layer_state *s,unsigned tick){
  }
  return count;
 }
+#include "mc_shrine_ritual_fx.inc"
+
 static unsigned interaction_ambient_count(const mc_layer_state *s,unsigned tick){
  if(!s)return 0u;
  if(mc_layers_intro_active(s))return 0u;
+ if(s->ritual_state>=MC_RITUAL_READY&&s->ritual_state<=MC_RITUAL_RUNNING)return ritual_collect(s,0);
  /* Dirty maps union the complete old/new geometry. Unspawned/dead enemies
   * and expired fragments therefore do not need alpha-zero placeholders. */
  unsigned count=41u+(s->combat_phase<5u?
@@ -1930,6 +2041,8 @@ static unsigned ambient_collect(unsigned tick,unsigned mode,int player_x,int pla
     i&1u,0u,12u,4u,0u,0u};
   }
  }
+ if(state&&!mc_layers_intro_active(state)&&state->ritual_state>=MC_RITUAL_READY&&
+    state->ritual_state<=MC_RITUAL_RUNNING)return count+ritual_collect(state,out+count);
  if(state&&!mc_layers_intro_active(state)){
   /* Three independently moving depth bands live outside the temporary
    * crystal flight, so the shrine never returns to a still picture. */
@@ -2534,6 +2647,22 @@ static void fx_cache_dirty_build(unsigned slot){
  for(unsigned index=0;index<fx_cache_count[slot];index++){
   const ruins_fx_sprite *sprite=&fx_cache[slot][index];
   if(!sprite->alpha)continue;
+  if(sprite->kind==26u){
+   /* Restore only screen tiles which intersect a nonempty source cell.
+    * Subtile positions conservatively expand into both adjacent tiles. */
+   int x=sprite->x,y=sprite->y;
+   if(x>=SCREEN_W||x+192<=0||y>=SCREEN_H||y+192<=0)continue;
+   int column=x>>4;unsigned shifted=(unsigned)x&15u;
+   for(unsigned row=0;row<12u;row++){
+    uint32_t occupied=ritual_occupied_rows[sprite->frame%3u][row];
+    if(!occupied)continue;if(shifted)occupied|=occupied<<1;
+    uint64_t bits=column>=0?(uint64_t)occupied<<(unsigned)column:(uint64_t)occupied>>(unsigned)(-column);
+    int screen_row=(y>>4)+(int)row;
+    if(screen_row>=0&&screen_row<(int)TILE_ROWS)fx_cache_dirty[slot][screen_row]|=bits;
+    if(((unsigned)y&15u)&&screen_row+1>=0&&screen_row+1<(int)TILE_ROWS)fx_cache_dirty[slot][screen_row+1]|=bits;
+   }
+   continue;
+  }
   int x0=sprite->x,y0=sprite->y;
   int x1=x0+(int)sprite->size,y1=y0+(int)sprite->size;
   unsigned source_index=sprite->kind==15u?sprite->frame%3u:
@@ -2607,6 +2736,7 @@ static uint32_t fx_source(const ruins_fx_sprite *sprite,uint32_t *stride){
  if(cached<GOLDEN_FX_CACHE_CELLS){
   *stride=16u*4u;return GOLDEN_FX_CACHE_BASE+cached*GOLDEN_FX_CACHE_CELL;
  }
+ if(sprite->kind==26u){*stride=192u*4u;return GOLDEN_RITUAL_SLASH_BASE+(sprite->frame%3u)*GOLDEN_RITUAL_SLASH_CELL;}
  if(sprite->kind==7u){
   unsigned inset=(GOLDEN_CRYSTAL_SIZE-sprite->size)/2u;
   *stride=GOLDEN_CRYSTAL_SIZE*4u;
@@ -2697,8 +2827,8 @@ static inline __attribute__((always_inline)) unsigned fx_trim_command(const ruin
  unsigned index=sprite->kind==15u?sprite->frame%3u:
   sprite->kind==22u?3u+sprite->frame:
   sprite->kind==6u?23u+!!(sprite->frame&8u):25u;
- if(index>=25u)return 1u;
- sprite_bounds b=combat_source_bounds[index];
+ if(index>=25u&&sprite->kind!=24u)return 1u;
+ sprite_bounds b=sprite->kind==24u?guide_bounds[sprite->frame&63u]:combat_source_bounds[index];
  if(b.right<=b.left||b.bottom<=b.top)return 0u;
  unsigned offset=c->dst-back;int x=(int)(offset%STRIDE)/4,y=(int)(offset/STRIDE);
  int left=x>draw_x+b.left?x:draw_x+b.left,top=y>draw_y+b.top?y:draw_y+b.top;
@@ -3146,6 +3276,29 @@ static inline __attribute__((always_inline)) void ambient_draw_record(mc_layer_s
  if((mode&2u)&&slot<4u)state->lamps_draws++;
 }
 
+/* Expand only the three large ritual sources. Full cells match the
+ * existing Tile4 TILED/row-mask fast path; clipped cells remain exact linear
+ *16px row reads. Disjoint cells preserve sprite composition order. */
+static unsigned ritual_packed_commands(mc_layer_state *s,const ruins_fx_sprite *sprite,uint32_t back,
+ gfx_command *out,unsigned count,unsigned cap,golden_dirty_rect clip){
+ unsigned frame=sprite->frame%3u;
+ for(unsigned j=0;j<ritual_tile_counts[frame];j++){
+  unsigned cell=ritual_visible_tiles[frame][j];
+  int x=sprite->x+(int)(cell%12u)*16,y=sprite->y+(int)(cell/12u)*16;
+  int left=x>clip.x?x:clip.x,top=y>clip.y?y:clip.y;
+  int right=x+16<clip.x+clip.w?x+16:clip.x+clip.w,bottom=y+16<clip.y+clip.h?y+16:clip.y+clip.h;
+  const uint8_t *b=ritual_cell_bounds[frame][cell];
+  if(left<x+b[0])left=x+b[0];if(top<y+b[1])top=y+b[1];
+  if(right>x+b[2])right=x+b[2];if(bottom>y+b[3])bottom=y+b[3];
+  if(right<=left||bottom<=top)continue;
+  gfx_command c={.op=GFX_OP_BLEND|GFX_FLAG_KEY|GFX_FLAG_PIXEL_ALPHA,
+   .src=GOLDEN_RITUAL_TILED_BASE+frame*GOLDEN_RITUAL_SLASH_CELL+cell*1024u+(uint32_t)(top-y)*64u+(uint32_t)(left-x)*4u,
+   .dst=back+(uint32_t)top*STRIDE+(uint32_t)left*4u,.width=(unsigned)(right-left),.height=(unsigned)(bottom-top),
+   .src_stride=64u,.dst_stride=STRIDE,.alpha=sprite->alpha,.key=GAME_KEY};
+  count=push(s,out,count,cap,c);
+ }
+ return count;
+}
 static unsigned fx_region(mc_layer_state *state,uint32_t back,gfx_command *out,unsigned count,
                           unsigned capacity,golden_dirty_rect clip){
  unsigned clock=mc_layers_fx_clock(state),mode=effective_ambient_mode(state);
@@ -3172,6 +3325,11 @@ static unsigned fx_region(mc_layer_state *state,uint32_t back,gfx_command *out,u
   for(unsigned index=0;index<active;index++){
    ruins_fx_sprite sprite=sprites[index];if(!sprite.alpha||sprite.front!=plane)continue;
    int draw_x,draw_y;unsigned draw_size;uint32_t source_stride,source;
+   if(sprite.kind==26u){
+    unsigned before=count;count=ritual_packed_commands(state,&sprite,back,out,count,capacity,clip);
+    if(count>before)ambient_draw_record(state,index,bullets,mode);
+    continue;
+   }
    fx_draw_geometry(&sprite,&draw_x,&draw_y,&draw_size,&source,&source_stride);
    int left=draw_x>clip.x?draw_x:clip.x,top=draw_y>clip.y?draw_y:clip.y;
    int right=draw_x+(int)draw_size<clip.x+clip.w?draw_x+(int)draw_size:clip.x+clip.w;
@@ -3287,6 +3445,12 @@ static __attribute__((optimize("O2"))) unsigned overlay_regions(mc_layer_state *
   for(unsigned index=0;index<active;index++){
    ruins_fx_sprite sprite=sprites[index];if(!sprite.alpha||sprite.front!=plane)continue;
    int draw_x,draw_y;unsigned draw_size;uint32_t source_stride,source;
+   if(sprite.kind==26u){
+    unsigned before=count;
+    count=ritual_packed_commands(state,&sprite,back,out,count,capacity,(golden_dirty_rect){0,0,SCREEN_W,SCREEN_H});
+    if(count>before)ambient_draw_record(state,index,bullets,mode);
+    continue;
+   }
    fx_draw_geometry(&sprite,&draw_x,&draw_y,&draw_size,&source,&source_stride);
    int left=draw_x<0?0:draw_x,top=draw_y<0?0:draw_y;
    int right=draw_x+(int)draw_size,bottom=draw_y+(int)draw_size;
@@ -3318,9 +3482,11 @@ static unsigned overlay_command_count(const mc_layer_state *state,
  if(!clock&&!mode&&!interaction)return 0u;
  if(state->tile_mode){
   unsigned active=0u,bullets=0u;
-  fx_collect_cached(clock,state->fx_limit,state->tick,mode,state->player_x,
+  const ruins_fx_sprite *records=fx_collect_cached(clock,state->fx_limit,state->tick,mode,state->player_x,
    state->player_y,state->player_vx,(mc_layer_state *)state,&active,&bullets);
   unsigned commands=active;
+  for(unsigned i=0;i<active;i++)if(records[i].kind==26u&&records[i].alpha)
+   commands+=ritual_tile_counts[records[i].frame%3u]-1u;
   if(!(clock&INTRO_FX_FLAG)&&(state->enable_mask&(1u<<6)))
    commands+=foreground_runs((mc_layer_state *)state,0,0,0,0,0u);
   return commands;

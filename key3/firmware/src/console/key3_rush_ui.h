@@ -2,9 +2,19 @@
 #define KEY3_RUSH_UI_H
 #include "console.h"
 #if MIRROR_HAS_KEY3
+#if DANMAKU_MENU_LOAD_COUNT==5u
+#define RUSH_LOAD_X 120u
+#else
 #define RUSH_LOAD_X 32u
+#endif
 #define RUSH_LOAD_Y 330u
-#if DANMAKU_LOAD_COUNT>11u
+#if DANMAKU_MENU_LOAD_COUNT==5u
+#define RUSH_LOAD_PITCH 160u
+#define RUSH_LOAD_W 144u
+#elif DANMAKU_LOAD_COUNT>12u
+#define RUSH_LOAD_PITCH 52u
+#define RUSH_LOAD_W 48u
+#elif DANMAKU_LOAD_COUNT>11u
 #define RUSH_LOAD_PITCH 80u
 #define RUSH_LOAD_W 72u
 #elif DANMAKU_LOAD_COUNT>10u
@@ -18,10 +28,10 @@
 #define RUSH_LOAD_W 96u
 #endif
 #define RUSH_LOAD_H 48u
-_Static_assert(RUSH_LOAD_X+(DANMAKU_LOAD_COUNT-1u)*RUSH_LOAD_PITCH+RUSH_LOAD_W<=GAME_W,"preset row fits display");
+_Static_assert(RUSH_LOAD_X+(DANMAKU_MENU_LOAD_COUNT-1u)*RUSH_LOAD_PITCH+RUSH_LOAD_W<=GAME_W,"preset row fits display");
 static inline unsigned rush_load_x(unsigned index){return RUSH_LOAD_X+index*RUSH_LOAD_PITCH;}
 static inline unsigned rush_load_index(unsigned target){
- for(unsigned i=0;i<DANMAKU_LOAD_COUNT;i++)if(danmaku_load_presets[i].load==target)return i;
+ for(unsigned i=0;i<DANMAKU_MENU_LOAD_COUNT;i++)if(danmaku_menu_loads[i]==target)return i;
  return 0u;
 }
 #define RUSH_UI_TOP (GAME_FB0+0x00280000u)

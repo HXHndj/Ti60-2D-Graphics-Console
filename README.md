@@ -1,6 +1,6 @@
 # Ti60 2D 图形控制台
 
-基于 Efinix **Ti60F225** FPGA 的 RISC-V SoC 嵌入式图形控制台：Sapphire 软核（RV32IM）搭配自研 **gfx2d 2D 图形加速引擎**，DDR3 帧缓冲，DVI/HDMI 视频输出，一片 FPGA 内固化 **四个可切换镜像**（菜单 / 精灵压测 / Boss 战 / 弹幕）。
+基于 Efinix **Ti60F225** FPGA 的 RISC-V SoC 嵌入式图形控制台：Sapphire 软核（RV32IM）搭配自研 **gfx2d 2D 图形加速引擎**，DDR3 帧缓冲，DVI/HDMI 视频输出，一片 FPGA 内固化 **四个可切换镜像**（菜单 / 精灵压测 / Boss Rush / 月影神社）。
 
 ## 赛题背景
 
@@ -31,12 +31,18 @@ gfx2d 引擎包含命令队列、精灵流水线、桶（bucket）引擎、tile 
 |---|---|---|
 | `launch/` | `launch.xml` | 菜单启动器，上电入口，选择进入各镜像 |
 | `m12/` | `m12.xml` | Sprite FIELD 精灵压测演示：512…4096 精灵负载档位、多档精灵尺寸，行级预取与双 bank 流水 |
-| `key3/` | `key3.xml` | Boss Rush：1920 精灵池版本，640×480 视频输出 |
-| `moonshadow/` | `ddr_board.xml` | Moonshadow：弹幕演示，LZ4 压缩 ROM 自举 + tile 引擎 |
+| `key3/` | `key3.xml` | Boss Rush：2496 弹池上限，512／1024／1536／1920／2496 五档菜单，1024×600 视频输出 |
+| `moonshadow/` | `ddr_board.xml` | 月影神社：互动万符归阵、三次剑气直达月门及蓄力终结斩，1024×600，tile 合成引擎 |
 
 每个镜像是独立完整的 Efinity 工程，独享全部 FPGA 资源；`m12` / `key3` 支持四键同按约 600 ms 返回菜单，`moonshadow` 通过实体 CRESET 返回。
 
 M12 已包含 PAD24 冷启动修复：首次初始化默认启用 24×24 填充行缓存优化，后续切换精灵尺寸、负载时保留运行时设置。源码与嵌入 ROM 初始化数据同步更新，无需开机后通过 UART 手动启用。
+
+### Boss Rush 与月影神社更新
+
+两个游戏的源码、绘图 RTL、启动程序和预置 ROM 已同步至 2026-11-03 的 Flash 参考版本。Boss Rush 保留原美术，采用 DIRECT、DDR 命令环分段提交、透明行范围缓存与裁剪、不透明像素计算旁路、显示等待期 CPU 准备及转场局部恢复；月影神社增加由玩家攻击触发的三符阵齐射，并以透明块筛选、细化 Dirty 覆盖和轨迹裁剪控制高潮特效开销。两者 FPS 均按显示端新帧／扫描数计算，采用 5 秒窗口、保留一位小数。
+
+Boss Rush 使用 CFZ1 压缩容器和 40 位 ROM 打包；月影使用 CFZ2 容器和固定布局的 5 位 ROM。对应构建脚本会同时重建应用、启动器及 ROM 初始化文件。通过原一键入口进行隔离固件重编后，两个游戏的应用、编码 ROM、启动程序均与 Flash 参考文件逐字节一致，版本哈希见 [Boss Rush 参考记录](key3/FLASH_REFERENCE.json) 和 [月影参考记录](moonshadow/FLASH_REFERENCE.json)。完整 FPGA 重编后的时序和板端性能需针对新产物验证；本次同步没有重新烧录。启动菜单、压测及根构建入口保持原版本。
 
 ## 一键构建
 
